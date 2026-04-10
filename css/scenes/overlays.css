@@ -1,0 +1,15 @@
+.scene-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.scene-overlay--start,
+.scene-overlay--game-over,
+.scene-overlay--victory {
+    display: none;
+}
+
+.scene-overlay.is-active {
+    display: block;
+}

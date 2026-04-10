@@ -1,0 +1,26 @@
+body {
+    background: #ccc;
+}
+
+.contenedor {
+    width: 100%;
+    margin: 0 auto;
+}
+
+div.contenedor > div.izquierda,
+div.contenedor > div.derecha {
+    width: 300px;
+}
+
+div.contenedor > div.izquierda {
+    float: left;
+    text-align: left;
+}
+
+div.contenedor > div.derecha {
+    float: right;
+}
+
+.juego canvas {
+    box-shadow: 0 0 30px #000;
+}

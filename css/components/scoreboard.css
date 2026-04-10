@@ -1,0 +1,24 @@
+.tituloPuntuaciones {
+    background: url("../../images/medalla.png") no-repeat left;
+    padding: 10px;
+}
+
+#puntuaciones {
+    width: 300px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+#puntuaciones li {
+    line-height: 1.5em;
+    border-bottom: 1px solid #aaa;
+    float: left;
+    display: inline;
+    width: 50%;
+    padding: 10px 0;
+}
+
+.negrita {
+    font-weight: bold;
+}

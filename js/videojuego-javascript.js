@@ -44,9 +44,17 @@ var game = (function () {
         totalBestScoresToShow = 5, // las mejores puntuaciones que se mostraran
         playerShotsBuffer = [],
         evilShotsBuffer = [],
+        powerUpsBuffer = [],
         evilShotImage,
         playerShotImage,
         playerKilledImage,
+        playerNormalImage,
+        playerShieldImage,
+        powerUpImages = {
+            shield : new Image(),
+            life : new Image(),
+            triple : new Image()
+        },
         evilImages = {
             animation : [],
             killed : new Image()
@@ -64,6 +72,12 @@ var game = (function () {
         nextPlayerShot = 0,
         playerShotDelay = 250,
         now = 0;
+
+    var powerUpTypes = {
+        shield: 'shield',
+        life: 'life',
+        triple: 'triple'
+    };
 
     function loop() {
         update();
@@ -91,6 +105,13 @@ var game = (function () {
         evilShotImage.src = 'images/disparo_malo.png';
         playerKilledImage = new Image();
         playerKilledImage.src = 'images/bueno_muerto.png';
+        playerNormalImage = new Image();
+        playerNormalImage.src = 'images/bueno.png';
+        playerShieldImage = new Image();
+        playerShieldImage.src = 'images/escudo_personaje.png';
+        powerUpImages.shield.src = 'images/power_up_escudo.png';
+        powerUpImages.life.src = 'images/power_up_vida.png';
+        powerUpImages.triple.src = 'images/power_up_disparo.png';
 
     }
 
@@ -129,6 +150,12 @@ var game = (function () {
         bufferctx.font="bold 16px Arial";
         bufferctx.fillText("Puntos: " + player.score, canvas.width - 100, 20);
         bufferctx.fillText("Vidas: " + player.life, canvas.width - 100,40);
+        if (player.hasShield) {
+            bufferctx.fillText("Escudo: SI", canvas.width - 100,60);
+        }
+        if (player.hasTripleShot()) {
+            bufferctx.fillText("Triple: SI", canvas.width - 100,80);
+        }
     }
 
     function getRandomNumber(range) {
@@ -148,17 +175,33 @@ var game = (function () {
         player.score = score;
         player.dead = false;
         player.speed = playerSpeed;
+        player.hasShield = false;
+        player.tripleShotUntil = 0;
 
         var shoot = function () {
             if (nextPlayerShot < now || now == 0) {
-                playerShot = new PlayerShot(player.posX + (player.width / 2) - 5 , player.posY);
-                playerShot.add();
+                if (player.hasTripleShot()) {
+                    createTripleShot();
+                } else {
+                    playerShot = new PlayerShot(player.posX + (player.width / 2) - 5 , player.posY);
+                    playerShot.add();
+                }
                 now += playerShotDelay;
                 nextPlayerShot = now + playerShotDelay;
             } else {
                 now = new Date().getTime();
             }
         };
+
+        function createTripleShot() {
+            var centerX = player.posX + (player.width / 2) - 5;
+            var leftShot = new PlayerShot(centerX - 16, player.posY);
+            var centerShot = new PlayerShot(centerX, player.posY);
+            var rightShot = new PlayerShot(centerX + 16, player.posY);
+            leftShot.add();
+            centerShot.add();
+            rightShot.add();
+        }
 
         player.doAnything = function() {
             if (player.dead)
@@ -171,11 +214,37 @@ var game = (function () {
                 shoot();
         };
 
+        player.hasTripleShot = function() {
+            return new Date().getTime() <= this.tripleShotUntil;
+        };
+
+        player.activateShield = function() {
+            if (this.hasShield) {
+                return;
+            }
+            this.hasShield = true;
+            this.src = playerShieldImage.src;
+        };
+
+        player.removeShield = function() {
+            this.hasShield = false;
+            this.src = playerNormalImage.src;
+        };
+
+        player.activateTripleShot = function() {
+            this.tripleShotUntil = new Date().getTime() + 5000;
+        };
+
         player.killPlayer = function() {
+            if (this.hasShield) {
+                this.removeShield();
+                return;
+            }
             if (this.life > 0) {
                 this.dead = true;
                 evilShotsBuffer.splice(0, evilShotsBuffer.length);
                 playerShotsBuffer.splice(0, playerShotsBuffer.length);
+                powerUpsBuffer.splice(0, powerUpsBuffer.length);
                 this.src = playerKilledImage.src;
                 createNewEvil();
                 setTimeout(function () {
@@ -227,6 +296,79 @@ var game = (function () {
 
     EvilShot.prototype = Object.create(Shot.prototype);
     EvilShot.prototype.constructor = EvilShot;
+
+    function PowerUp(type, x, y) {
+        this.type = type;
+        this.posX = x;
+        this.posY = y;
+        this.speed = 2;
+        this.image = getPowerUpImage(type);
+        this.add = function () {
+            powerUpsBuffer.push(this);
+        };
+        this.deletePowerUp = function (identifier) {
+            arrayRemove(powerUpsBuffer, identifier);
+        };
+        this.isHittingPlayer = function () {
+            return (this.posX >= player.posX && this.posX <= (player.posX + player.width)
+                && this.posY >= player.posY && this.posY <= (player.posY + player.height));
+        };
+    }
+
+    function getPowerUpImage(type) {
+        if (type === powerUpTypes.shield) {
+            return powerUpImages.shield;
+        }
+        if (type === powerUpTypes.life) {
+            return powerUpImages.life;
+        }
+        return powerUpImages.triple;
+    }
+
+    function createPowerUp(x, y) {
+        // 35% de probabilidad de generar un power-up al derrotar un enemigo.
+        if (getRandomNumber(100) > 34) {
+            return;
+        }
+        var availableTypes = [powerUpTypes.shield, powerUpTypes.life, powerUpTypes.triple];
+        var selectedType = availableTypes[getRandomNumber(availableTypes.length)];
+        var powerUp = new PowerUp(selectedType, x, y);
+        powerUp.add();
+    }
+
+    function applyPowerUp(type) {
+        if (type === powerUpTypes.shield) {
+            player.activateShield();
+            return;
+        }
+        if (type === powerUpTypes.life) {
+            if (player.life < playerLife) {
+                player.life++;
+            }
+            return;
+        }
+        player.activateTripleShot();
+    }
+
+    function updatePowerUps() {
+        for (var i = 0; i < powerUpsBuffer.length; i++) {
+            var powerUp = powerUpsBuffer[i];
+            if (!powerUp) {
+                continue;
+            }
+            if (powerUp.isHittingPlayer()) {
+                applyPowerUp(powerUp.type);
+                powerUp.deletePowerUp(i);
+                continue;
+            }
+            powerUp.posY += powerUp.speed;
+            if (powerUp.posY > canvas.height) {
+                powerUp.deletePowerUp(i);
+            } else {
+                bufferctx.drawImage(powerUp.image, powerUp.posX, powerUp.posY);
+            }
+        }
+    }
     /******************************* FIN DISPAROS ********************************/
 
 
@@ -251,6 +393,7 @@ var game = (function () {
 
         this.kill = function() {
             this.dead = true;
+            createPowerUp(this.posX + (this.image.width / 2), this.posY + (this.image.height / 2));
             totalEvils --;
             this.image = enemyImages.killed;
             verifyToCreateNewEvil();
@@ -446,6 +589,7 @@ var game = (function () {
         bufferctx.drawImage(evil.image, evil.posX, evil.posY);
 
         updateEvil();
+        updatePowerUps();
 
         for (var j = 0; j < playerShotsBuffer.length; j++) {
             var disparoBueno = playerShotsBuffer[j];
@@ -491,6 +635,7 @@ var game = (function () {
                     evilShot.deleteShot(parseInt(evilShot.identifier));
                 }
             } else {
+                evilShot.deleteShot(parseInt(evilShot.identifier));
                 player.killPlayer();
             }
         }

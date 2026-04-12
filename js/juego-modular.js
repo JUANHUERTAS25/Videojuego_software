@@ -28,13 +28,15 @@ var gameModular = (function (global) {
         congratulations = false,
         minHorizontalOffset = 100,
         maxHorizontalOffset = 400,
+        nextEnemySpawnMinDelay = 700,
+        nextEnemySpawnMaxDelay = 1400,
         evilShots = 5,
         evilLife = 3,
         finalBossShots = 30,
         finalBossLife = 12,
         totalBestScoresToShow = 5,
         nextPlayerShot = 0,
-        playerShotDelay = 250,
+        playerShotDelay = 200,
         now = 0,
         playerShotsBuffer = [],
         evilShotsBuffer = [],
@@ -43,8 +45,26 @@ var gameModular = (function (global) {
         playerKilledImage,
         playerNormalImage,
         playerShieldImage,
+        gameMusic,
+        gameMusicBaseVolume = 0.75,
+        gameMusicFadeTimer = null,
+        shotSound,
+        powerUpSound,
+        enemyExplosionSound,
+        winGameSound,
+        gameOverSound,
         scoreboardSystem,
         powerUpSystem,
+        healthBarSystem,
+        weaponHeatSystem,
+        lastFrameTime = 0,
+        levelMessage = '',
+        levelMessageUntil = 0,
+        levelOneCompleted = false,
+        levelTwoShown = false,
+        playedWinSound = false,
+        playedGameOverSound = false,
+        initialTotalEvils = totalEvils,
         keyPressed = {},
         keyMap = {
             left: 37,
@@ -95,6 +115,162 @@ var gameModular = (function (global) {
         playerNormalImage.src = 'images/bueno.png';
         playerShieldImage = new Image();
         playerShieldImage.src = 'images/escudo_personaje.png';
+
+        gameMusic = new Audio('music/musica_durante_juego.wav');
+        gameMusic.preload = 'auto';
+        gameMusic.loop = true;
+        gameMusic.volume = gameMusicBaseVolume;
+
+        shotSound = new Audio('music/sonido_disparo.wav');
+        shotSound.preload = 'auto';
+        powerUpSound = new Audio('music/sonido_power_up.wav');
+        powerUpSound.preload = 'auto';
+        enemyExplosionSound = new Audio('music/sonido_explosion_enemigos.wav');
+        enemyExplosionSound.preload = 'auto';
+        winGameSound = new Audio('music/sonido_win_game.wav');
+        winGameSound.preload = 'auto';
+        gameOverSound = new Audio('music/sonido_game_over.wav');
+        gameOverSound.preload = 'auto';
+    }
+
+    function playGameMusic() {
+        if (!gameMusic) {
+            return;
+        }
+        if (youLoose || congratulations) {
+            return;
+        }
+        if (!gameMusic.paused) {
+            return;
+        }
+        if (gameMusicFadeTimer) {
+            clearInterval(gameMusicFadeTimer);
+            gameMusicFadeTimer = null;
+        }
+        gameMusic.volume = gameMusicBaseVolume;
+        gameMusic.play().catch(function () {
+            return null;
+        });
+    }
+
+    function stopGameMusic(fadeOutMs) {
+        if (!gameMusic) {
+            return;
+        }
+        if (gameMusicFadeTimer) {
+            clearInterval(gameMusicFadeTimer);
+            gameMusicFadeTimer = null;
+        }
+
+        if (!fadeOutMs || fadeOutMs <= 0 || gameMusic.paused) {
+            gameMusic.pause();
+            gameMusic.currentTime = 0;
+            gameMusic.volume = gameMusicBaseVolume;
+            return;
+        }
+
+        var stepMs = 50;
+        var steps = Math.max(1, Math.floor(fadeOutMs / stepMs));
+        var volumeStep = gameMusic.volume / steps;
+
+        gameMusicFadeTimer = setInterval(function () {
+            gameMusic.volume = Math.max(0, gameMusic.volume - volumeStep);
+            if (gameMusic.volume <= 0.01) {
+                clearInterval(gameMusicFadeTimer);
+                gameMusicFadeTimer = null;
+                gameMusic.pause();
+                gameMusic.currentTime = 0;
+                gameMusic.volume = gameMusicBaseVolume;
+            }
+        }, stepMs);
+    }
+
+    function setLevelMessage(message, durationMs) {
+        levelMessage = message;
+        levelMessageUntil = new Date().getTime() + durationMs;
+    }
+
+    function drawLevelMessage() {
+        if (new Date().getTime() > levelMessageUntil) {
+            return;
+        }
+        bufferctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+        bufferctx.font = 'bold 38px Arial';
+        bufferctx.textAlign = 'center';
+        bufferctx.fillText(levelMessage, canvas.width / 2, canvas.height / 2);
+        bufferctx.textAlign = 'start';
+    }
+
+    function playShotSound() {
+        if (!shotSound) {
+            return;
+        }
+        var shotInstance = shotSound.cloneNode();
+        shotInstance.volume = 0.2;
+        shotInstance.playbackRate = 1.25;
+        shotInstance.play().catch(function () {
+            return null;
+        });
+        setTimeout(function () {
+            shotInstance.pause();
+            shotInstance.currentTime = 0;
+        }, 120);
+    }
+
+    function playPowerUpSound() {
+        if (!powerUpSound) {
+            return;
+        }
+        var powerUpInstance = powerUpSound.cloneNode();
+        powerUpInstance.volume = 0.5;
+        powerUpInstance.play().catch(function () {
+            return null;
+        });
+    }
+
+    function playEnemyExplosionSound() {
+        if (!enemyExplosionSound) {
+            return;
+        }
+        var explosionInstance = enemyExplosionSound.cloneNode();
+        explosionInstance.volume = 0.5;
+        explosionInstance.play().catch(function () {
+            return null;
+        });
+    }
+
+    function playWinGameSound() {
+        if (!winGameSound || playedWinSound) {
+            return;
+        }
+        playedWinSound = true;
+        if (gameOverSound) {
+            gameOverSound.pause();
+            gameOverSound.currentTime = 0;
+        }
+        stopGameMusic(350);
+        winGameSound.currentTime = 0;
+        winGameSound.volume = 0.7;
+        winGameSound.play().catch(function () {
+            return null;
+        });
+    }
+
+    function playGameOverSound() {
+        if (!gameOverSound || playedGameOverSound) {
+            return;
+        }
+        playedGameOverSound = true;
+        if (winGameSound) {
+            winGameSound.pause();
+            winGameSound.currentTime = 0;
+        }
+        stopGameMusic(350);
+        gameOverSound.currentTime = 0;
+        gameOverSound.volume = 0.7;
+        gameOverSound.play().catch(function () {
+            return null;
+        });
     }
 
     function init() {
@@ -102,9 +278,18 @@ var gameModular = (function (global) {
             totalBestScoresToShow: totalBestScoresToShow
         });
         powerUpSystem = global.PowerUpSystem.create();
+        healthBarSystem = global.HealthBarSystem.create();
+        weaponHeatSystem = global.WeaponHeatSystem.create({
+            maxHeat: 100,
+            heatPerShot: 12,
+            coolRateIdle: 26,
+            coolRateHoldingFire: 10,
+            overheatLockMs: 1400
+        });
         preloadImages();
         powerUpSystem.preloadImages();
         scoreboardSystem.renderList('puntuaciones');
+        playGameMusic();
 
         canvas = document.getElementById('canvas');
         ctx = canvas.getContext('2d');
@@ -115,8 +300,10 @@ var gameModular = (function (global) {
         bufferctx = buffer.getContext('2d');
 
         player = new Player(maxPlayerLife, 0);
+        lastFrameTime = new Date().getTime();
         evilCounter = 1;
         createNewEvil();
+        setLevelMessage('Nivel 1', 2200);
 
         addListener(document, 'keydown', keyDown);
         addListener(document, 'keyup', keyUp);
@@ -156,6 +343,7 @@ var gameModular = (function (global) {
         player.speed = playerSpeed;
         player.hasShield = false;
         player.shieldCharges = 0;
+        player.damageCooldownUntil = 0;
         player.tripleShotUntil = 0;
 
         function createSingleShot() {
@@ -174,12 +362,19 @@ var gameModular = (function (global) {
         }
 
         function shoot() {
+            var nowMs = new Date().getTime();
+            if (!weaponHeatSystem.canShoot(nowMs)) {
+                return;
+            }
+
             if (nextPlayerShot < now || now === 0) {
                 if (player.hasTripleShot()) {
                     createTripleShot();
                 } else {
                     createSingleShot();
                 }
+                playShotSound();
+                weaponHeatSystem.onShot(nowMs, player.hasTripleShot() ? 1.8 : 1);
                 now += playerShotDelay;
                 nextPlayerShot = now + playerShotDelay;
             } else {
@@ -207,6 +402,10 @@ var gameModular = (function (global) {
             this.hasShield = this.shieldCharges > 0;
         };
 
+        player.canReceiveDamage = function () {
+            return new Date().getTime() >= this.damageCooldownUntil;
+        };
+
         player.doAnything = function () {
             if (player.dead) {
                 return;
@@ -223,12 +422,17 @@ var gameModular = (function (global) {
         };
 
         player.killPlayer = function () {
-            if (this.hasShield) {
-                this.removeShield();
+            if (!this.canReceiveDamage()) {
                 return;
             }
 
-            if (this.life > 0) {
+            if (this.hasShield) {
+                this.removeShield();
+                this.damageCooldownUntil = new Date().getTime() + 700;
+                return;
+            }
+
+            if (this.life > 1) {
                 this.dead = true;
                 evilShotsBuffer.splice(0, evilShotsBuffer.length);
                 playerShotsBuffer.splice(0, playerShotsBuffer.length);
@@ -305,6 +509,7 @@ var gameModular = (function (global) {
     }
 
     function applyPowerUp(type) {
+        playPowerUpSound();
         if (type === powerUpSystem.types.shield) {
             player.activateShield();
             return;
@@ -330,14 +535,19 @@ var gameModular = (function (global) {
     }
 
     function Enemy(life, shots, enemyImages) {
+        var self = this;
         this.image = enemyImages.animation[0];
         this.imageNumber = 1;
         this.animation = 0;
         this.posX = getRandomNumber(canvas.width - this.image.width);
         this.posY = -50;
         this.life = life || evilLife;
+        this.maxLife = this.life;
         this.speed = evilSpeed;
         this.shots = shots || evilShots;
+        this.attackShotSpeed = shotSpeed;
+        this.minShootDelay = 1000;
+        this.maxShootDelay = 3000;
         this.dead = false;
 
         var desplazamientoHorizontal = minHorizontalOffset + getRandomNumber(maxHorizontalOffset - minHorizontalOffset);
@@ -347,6 +557,7 @@ var gameModular = (function (global) {
 
         this.kill = function () {
             this.dead = true;
+            healthBarSystem.clearEnemy(this);
             createPowerUp();
             totalEvils--;
             this.image = enemyImages.killed;
@@ -387,24 +598,31 @@ var gameModular = (function (global) {
         };
 
         function shootEnemy() {
-            if (evil.shots > 0 && !evil.dead) {
-                var shot = new EvilShot(evil.posX + (evil.image.width / 2) - 5, evil.posY + evil.image.height);
+            if (self.shots > 0 && !self.dead) {
+                var shot = new EvilShot(self.posX + (self.image.width / 2) - 5, self.posY + self.image.height);
+                shot.speed = self.attackShotSpeed;
                 shot.add();
-                evil.shots--;
+                self.shots--;
+                var shootWindow = Math.max(1, self.maxShootDelay - self.minShootDelay);
                 setTimeout(function () {
                     shootEnemy();
-                }, getRandomNumber(3000));
+                }, self.minShootDelay + getRandomNumber(shootWindow));
             }
         }
 
         setTimeout(function () {
             shootEnemy();
-        }, 1000 + getRandomNumber(2500));
+        }, self.minShootDelay + getRandomNumber(Math.max(1, self.maxShootDelay)));
     }
 
     function Evil(life, shots) {
         Enemy.call(this, life, shots, evilImages);
-        this.goDownSpeed = evilSpeed;
+        var batsKilled = initialTotalEvils - totalEvils;
+        this.goDownSpeed = evilSpeed + (batsKilled * 0.22);
+        this.speed = evilSpeed + (batsKilled * 0.12);
+        this.attackShotSpeed = shotSpeed + (batsKilled * 0.45);
+        this.minShootDelay = Math.max(350, 1000 - (batsKilled * 90));
+        this.maxShootDelay = Math.max(900, 3000 - (batsKilled * 180));
         this.pointsToKill = 5 + evilCounter;
     }
     Evil.prototype = Object.create(Enemy.prototype);
@@ -420,10 +638,16 @@ var gameModular = (function (global) {
 
     function verifyToCreateNewEvil() {
         if (totalEvils > 0) {
+            if (totalEvils === 1 && !levelOneCompleted) {
+                levelOneCompleted = true;
+                setLevelMessage('Nivel 1 completado', 2400);
+                powerUpSystem.spawnGuaranteed(canvas.width, getRandomNumber);
+            }
+            var spawnDelayRange = Math.max(1, nextEnemySpawnMaxDelay - nextEnemySpawnMinDelay);
             setTimeout(function () {
                 createNewEvil();
                 evilCounter++;
-            }, getRandomNumber(3000));
+            }, nextEnemySpawnMinDelay + getRandomNumber(spawnDelayRange));
         } else {
             setTimeout(function () {
                 saveFinalScore();
@@ -433,10 +657,22 @@ var gameModular = (function (global) {
     }
 
     function createNewEvil() {
+        // Evita que enemigos anteriores sigan disparando por temporizadores pendientes.
+        if (evil && !evil.dead) {
+            evil.dead = true;
+        }
+        // Limpia disparos huérfanos cuando cambia el enemigo activo.
+        evilShotsBuffer.splice(0, evilShotsBuffer.length);
+
         if (totalEvils !== 1) {
-            evil = new Evil(evilLife + evilCounter - 1, evilShots + evilCounter - 1);
+            var lifeScale = Math.floor((evilCounter - 1) / 2);
+            evil = new Evil(evilLife + lifeScale, evilShots + evilCounter - 1);
         } else {
             evil = new FinalBoss();
+            if (!levelTwoShown) {
+                levelTwoShown = true;
+                setLevelMessage('Nivel 2', 2200);
+            }
         }
     }
 
@@ -459,6 +695,7 @@ var gameModular = (function (global) {
             if (evil.life > 1) {
                 evil.life--;
             } else {
+                playEnemyExplosionSound();
                 evil.kill();
                 player.score += evil.pointsToKill;
             }
@@ -478,6 +715,10 @@ var gameModular = (function (global) {
     }
 
     function keyDown(e) {
+        if (youLoose || congratulations) {
+            return;
+        }
+        playGameMusic();
         var key = (window.event ? e.keyCode : e.which);
         var inkey;
         for (inkey in keyMap) {
@@ -534,6 +775,7 @@ var gameModular = (function (global) {
         if (player.hasTripleShot()) {
             bufferctx.fillText('Triple: SI', canvas.width - 120, 80);
         }
+        weaponHeatSystem.drawHud(bufferctx, new Date().getTime(), canvas.width - 190, 95);
     }
 
     function updatePlayerShot(playerShot, id) {
@@ -579,20 +821,37 @@ var gameModular = (function (global) {
     }
 
     function update() {
+        var currentTime = new Date().getTime();
+        var deltaSec = (currentTime - lastFrameTime) / 1000;
+        lastFrameTime = currentTime;
+
         drawBackground();
 
+        weaponHeatSystem.update({
+            isFiring: !!keyPressed.fire,
+            nowMs: currentTime,
+            deltaSec: deltaSec
+        });
+
         if (congratulations) {
+            playWinGameSound();
             showCongratulations();
             return;
         }
 
         if (youLoose) {
+            playGameOverSound();
             showGameOver();
             return;
         }
 
         drawPlayerWithEffects();
         bufferctx.drawImage(evil.image, evil.posX, evil.posY);
+        healthBarSystem.drawEnemyBar(bufferctx, evil, {
+            yOffset: 10,
+            height: 7
+        });
+        drawLevelMessage();
 
         updateEvil();
         updatePowerUps();

@@ -71,18 +71,17 @@
             return powerUpTypes.triple;
         }
 
-        function spawn(playerLife, canvasWidth, randomFn) {
-            var spawnProbability = 35;
-            if (randomFn(100) > spawnProbability) {
-                return;
-            }
+        function selectAnyPowerUpType(randomFn) {
+            var availableTypes = [powerUpTypes.shield, powerUpTypes.life, powerUpTypes.triple];
+            return availableTypes[randomFn(availableTypes.length)];
+        }
 
-            var type = selectPowerUpType(playerLife, randomFn);
+        function createPowerUpEntity(type, canvasWidth, randomFn) {
             var width = 22;
             var height = 22;
             var x = 10 + randomFn(canvasWidth - 48);
 
-            powerUpsBuffer.push({
+            return {
                 type: type,
                 width: width,
                 height: height,
@@ -91,7 +90,22 @@
                 speed: 3,
                 hitboxPadding: 10,
                 image: getPowerUpImage(type)
-            });
+            };
+        }
+
+        function spawn(playerLife, canvasWidth, randomFn) {
+            var spawnProbability = 35;
+            if (randomFn(100) > spawnProbability) {
+                return;
+            }
+
+            var type = selectPowerUpType(playerLife, randomFn);
+            powerUpsBuffer.push(createPowerUpEntity(type, canvasWidth, randomFn));
+        }
+
+        function spawnGuaranteed(canvasWidth, randomFn) {
+            var type = selectAnyPowerUpType(randomFn);
+            powerUpsBuffer.push(createPowerUpEntity(type, canvasWidth, randomFn));
         }
 
         function updateAndRender(options) {
@@ -155,6 +169,7 @@
         return {
             preloadImages: preloadImages,
             spawn: spawn,
+            spawnGuaranteed: spawnGuaranteed,
             updateAndRender: updateAndRender,
             drawShieldOverlay: drawShieldOverlay,
             clear: clear,

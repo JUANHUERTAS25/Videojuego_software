@@ -65,7 +65,7 @@
             ctx.fillStyle = color;
             ctx.fillRect(x + border, y + border, (width - (border * 2)) * ratio, height - (border * 2));
 
-            ctx.fillStyle = 'rgb(59,59,59)';
+            ctx.fillStyle = '#ffffff';
             ctx.font = 'bold 13px Arial';
             ctx.fillText('Calor', x, y - 4);
 

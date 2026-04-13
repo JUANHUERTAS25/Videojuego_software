@@ -1,14 +1,14 @@
 body {
-    color: #333;
+    color: #e9f2ff;
     font: 14px Arial, sans-serif;
     text-align: center;
 }
 
 a {
-    color: #506e2f;
+    color: #8bffa0;
     text-decoration: none;
 }
 
 a:hover {
-    color: #ff4500;
+    color: #c9ffd2;
 }

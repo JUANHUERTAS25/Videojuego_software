@@ -1,12 +1,16 @@
 ul.lista {
-    margin: 25px 0;
-    padding: 0;
+    margin: 16px 0;
+    padding: 10px;
     list-style: none;
     text-align: left;
+    background: rgba(13, 24, 38, 0.82);
+    border: 2px solid #ffffff;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.18);
 }
 
 ul.lista li {
-    padding: 10px 0;
+    padding: 8px 0;
+    color: #eaf3ff;
 }
 
 ul.lista li.firefox,
@@ -43,5 +47,13 @@ ul.lista li.safari {
 }
 
 ul.lista li.titulo {
+    font-weight: bold;
+    color: #ffffff;
+    letter-spacing: 0.4px;
+}
+
+ul.lista li.esc {
+    padding-left: 2px;
+    color: #cfe3ff;
     font-weight: bold;
 }

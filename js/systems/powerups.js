@@ -1,6 +1,17 @@
 (function (global) {
     var SHIELD_SIZE_EXTRA = 14;
     var SHIELD_ALPHA = 0.4;
+    var POWERUP_SIZE = 22;
+
+    function getAuraColor(type) {
+        if (type === 'shield') {
+            return 'rgba(72, 177, 255, 0.38)';
+        }
+        if (type === 'life') {
+            return 'rgba(255, 86, 122, 0.4)';
+        }
+        return 'rgba(255, 236, 94, 0.38)';
+    }
 
     function isRectOverlap(ax, ay, aw, ah, bx, by, bw, bh) {
         return ax < (bx + bw) &&
@@ -77,8 +88,8 @@
         }
 
         function createPowerUpEntity(type, canvasWidth, randomFn) {
-            var width = 22;
-            var height = 22;
+            var width = POWERUP_SIZE;
+            var height = POWERUP_SIZE;
             var x = 10 + randomFn(canvasWidth - 48);
 
             return {
@@ -144,6 +155,17 @@
                     i--;
                     continue;
                 }
+
+                ctx.beginPath();
+                ctx.fillStyle = getAuraColor(powerUp.type);
+                ctx.arc(
+                    powerUp.posX + (powerUp.width / 2),
+                    powerUp.posY + (powerUp.height / 2),
+                    (powerUp.width / 2) + 6,
+                    0,
+                    Math.PI * 2
+                );
+                ctx.fill();
 
                 ctx.drawImage(powerUp.image, powerUp.posX, powerUp.posY, powerUp.width, powerUp.height);
             }

@@ -1,54 +1,47 @@
 (function (global) {
     function create(options) {
         var totalBestScoresToShow = options.totalBestScoresToShow || 5;
+        var storageKey = options.storageKey || 'jellyshoot_scores';
 
-        function fillZero(number) {
-            if (number < 10) {
-                return '0' + number;
+        function normalizeName(name) {
+            var safeName = (name || '').toString().trim();
+            if (!safeName) {
+                return 'Jugador';
             }
-            return number;
+            return safeName.slice(0, 20);
         }
 
-        function getFinalScoreDate() {
-            var date = new Date();
-            return fillZero(date.getDay() + 1) + '/' +
-                fillZero(date.getMonth() + 1) + '/' +
-                date.getFullYear() + ' ' +
-                fillZero(date.getHours()) + ':' +
-                fillZero(date.getMinutes()) + ':' +
-                fillZero(date.getSeconds());
-        }
-
-        function getAllScores() {
-            var all = [];
-            var i;
-            for (i = 0; i < localStorage.length; i++) {
-                all[i] = localStorage.getItem(localStorage.key(i));
+        function getSavedScores() {
+            var raw = localStorage.getItem(storageKey);
+            if (!raw) {
+                return [];
             }
-            return all;
+            try {
+                var parsed = JSON.parse(raw);
+                return Array.isArray(parsed) ? parsed : [];
+            } catch (error) {
+                return [];
+            }
         }
 
-        function getBestScoreKeys() {
-            var bestScores = getAllScores();
-            bestScores.sort(function (a, b) {
-                return b - a;
+        function persistScores(scores) {
+            localStorage.setItem(storageKey, JSON.stringify(scores));
+        }
+
+        function getBestScores() {
+            var scores = getSavedScores();
+            scores.sort(function (a, b) {
+                return b.score - a.score;
             });
-            bestScores = bestScores.slice(0, totalBestScoresToShow);
+            return scores.slice(0, totalBestScoresToShow);
+        }
 
-            var bestScoreKeys = [];
-            var j;
-            for (j = 0; j < bestScores.length; j++) {
-                var score = bestScores[j];
-                var i;
-                for (i = 0; i < localStorage.length; i++) {
-                    var key = localStorage.key(i);
-                    if (parseInt(localStorage.getItem(key), 10) === parseInt(score, 10)) {
-                        bestScoreKeys.push(key);
-                    }
-                }
+        function getBestScore() {
+            var bestScores = getBestScores();
+            if (!bestScores.length) {
+                return 0;
             }
-
-            return bestScoreKeys.slice(0, totalBestScoresToShow);
+            return bestScores[0].score;
         }
 
         function addListElement(list, content, className) {
@@ -62,12 +55,12 @@
 
         function clearList(list) {
             list.innerHTML = '';
-            addListElement(list, 'Fecha');
+            addListElement(list, 'Jugador');
             addListElement(list, 'Puntos');
         }
 
         function renderList(targetElementId) {
-            var bestScores = getBestScoreKeys();
+            var bestScores = getBestScores();
             var bestScoresList = document.getElementById(targetElementId);
             if (!bestScoresList) {
                 return;
@@ -76,47 +69,30 @@
             clearList(bestScoresList);
             var i;
             for (i = 0; i < bestScores.length; i++) {
-                addListElement(bestScoresList, bestScores[i], i === 0 ? 'negrita' : null);
-                addListElement(bestScoresList, localStorage.getItem(bestScores[i]), i === 0 ? 'negrita' : null);
+                addListElement(bestScoresList, bestScores[i].name, i === 0 ? 'negrita' : null);
+                addListElement(bestScoresList, bestScores[i].score, i === 0 ? 'negrita' : null);
             }
         }
 
-        function containsElement(array, element) {
-            var i;
-            for (i = 0; i < array.length; i++) {
-                if (array[i] === element) {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        function removeNoBestScores() {
-            var scoresToRemove = [];
-            var bestScoreKeys = getBestScoreKeys();
-            var i;
-            for (i = 0; i < localStorage.length; i++) {
-                var key = localStorage.key(i);
-                if (!containsElement(bestScoreKeys, key)) {
-                    scoresToRemove.push(key);
-                }
-            }
-
-            var j;
-            for (j = 0; j < scoresToRemove.length; j++) {
-                localStorage.removeItem(scoresToRemove[j]);
-            }
-        }
-
-        function saveScore(totalScore, targetElementId) {
-            localStorage.setItem(getFinalScoreDate(), totalScore);
+        function saveScore(totalScore, targetElementId, playerName) {
+            var scores = getSavedScores();
+            scores.push({
+                name: normalizeName(playerName),
+                score: parseInt(totalScore, 10) || 0,
+                createdAt: new Date().toISOString()
+            });
+            scores.sort(function (a, b) {
+                return b.score - a.score;
+            });
+            scores = scores.slice(0, totalBestScoresToShow);
+            persistScores(scores);
             renderList(targetElementId);
-            removeNoBestScores();
         }
 
         return {
             renderList: renderList,
-            saveScore: saveScore
+            saveScore: saveScore,
+            getBestScore: getBestScore
         };
     }
 

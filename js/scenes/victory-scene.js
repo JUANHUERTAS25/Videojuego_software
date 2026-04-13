@@ -1,11 +1,43 @@
-// Escena de victoria (esqueleto de migracion)
 (function (global) {
-    global.VictoryScene = {
-        render: function (ctx, canvas, totalScore) {
-            ctx.fillStyle = 'rgb(204,50,153)';
-            ctx.font = 'bold 22px Arial';
-            ctx.fillText('Enhorabuena, te has pasado el juego!', canvas.width / 2 - 200, canvas.height / 2 - 30);
-            ctx.fillText('PUNTUACION TOTAL: ' + totalScore, canvas.width / 2 - 200, canvas.height / 2 + 30);
+    function create(options) {
+        var root = document.getElementById('sceneVictory');
+        var scoreEl = document.getElementById('victoryScore');
+        var homeBtn = document.getElementById('btnVictoryHome');
+        var restartBtn = document.getElementById('btnVictoryRestart');
+
+        if (homeBtn) {
+            homeBtn.addEventListener('click', function () {
+                options.onHome();
+            });
         }
+        if (restartBtn) {
+            restartBtn.addEventListener('click', function () {
+                options.onRestart();
+            });
+        }
+
+        function show(totalScore) {
+            if (scoreEl) {
+                scoreEl.textContent = 'Puntuacion total: ' + totalScore;
+            }
+            if (root) {
+                root.classList.add('is-active');
+            }
+        }
+
+        function hide() {
+            if (root) {
+                root.classList.remove('is-active');
+            }
+        }
+
+        return {
+            show: show,
+            hide: hide
+        };
+    }
+
+    global.VictoryScene = {
+        create: create
     };
 })(window);

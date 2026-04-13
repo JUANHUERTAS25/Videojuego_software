@@ -22,7 +22,7 @@ var gameModular = (function (global) {
         totalEvils = 7,
         maxPlayerLife = 3,
         shotSpeed = 5,
-        playerSpeed = 5,
+        playerSpeed = 6.2,
         evilCounter = 0,
         youLoose = false,
         congratulations = false,
@@ -34,6 +34,9 @@ var gameModular = (function (global) {
         evilLife = 3,
         finalBossShots = 30,
         finalBossLife = 12,
+        finalBossLaserWarningDurationMs = 900,
+        finalBossLaserWidthRatio = 0.5,
+        finalBossLaserDurationMs = 1300,
         totalBestScoresToShow = 5,
         nextPlayerShot = 0,
         playerShotDelay = 200,
@@ -45,18 +48,32 @@ var gameModular = (function (global) {
         playerKilledImage,
         playerNormalImage,
         playerShieldImage,
+        playerLifeHeartImage,
+        hudShieldIconImage,
+        hudTripleIconImage,
+        menuMusic,
+        menuMusicBaseVolume = 0.45,
+        hasUnlockedMenuAudio = false,
         gameMusic,
         gameMusicBaseVolume = 0.75,
         gameMusicFadeTimer = null,
         shotSound,
         powerUpSound,
         enemyExplosionSound,
+        bossMusic,
+        bossMusicBaseVolume = 0.78,
         winGameSound,
         gameOverSound,
         scoreboardSystem,
         powerUpSystem,
         healthBarSystem,
         weaponHeatSystem,
+        startScreenScene,
+        pauseScene,
+        gameOverScene,
+        victoryScene,
+        gamePhase = 'menu',
+        hasShownFinalScene = false,
         lastFrameTime = 0,
         levelMessage = '',
         levelMessageUntil = 0,
@@ -64,6 +81,7 @@ var gameModular = (function (global) {
         levelTwoShown = false,
         playedWinSound = false,
         playedGameOverSound = false,
+        selectedPlayerSkinSrc = 'images/bueno.png',
         initialTotalEvils = totalEvils,
         keyPressed = {},
         keyMap = {
@@ -75,10 +93,26 @@ var gameModular = (function (global) {
             animation: [],
             killed: new Image()
         },
-        bossImages = {
+        legacyBossImages = {
             animation: [],
             killed: new Image()
-        };
+        },
+        bossImages = {
+            animation: [],
+            laserAnimation: [],
+            killed: new Image()
+        },
+        bossPhaseTwoImages = {
+            animation: []
+        },
+        bossPhaseTwoLaserImages = {
+            animation: []
+        },
+        kamikazeImages = {
+            animation: [],
+            killed: new Image()
+        },
+        bossMinions = [];
 
     function loop() {
         update();
@@ -92,13 +126,35 @@ var gameModular = (function (global) {
             evilImage.src = 'images/malo' + i + '.png';
             evilImages.animation[i - 1] = evilImage;
 
+            var legacyBossImage = new Image();
+            legacyBossImage.src = 'images/jefe' + i + '.png';
+            legacyBossImages.animation[i - 1] = legacyBossImage;
+
             var bossImage = new Image();
-            bossImage.src = 'images/jefe' + i + '.png';
+            bossImage.src = 'images/bossF/bossF' + i + '.png';
             bossImages.animation[i - 1] = bossImage;
+
+            var bossImagePhaseTwo = new Image();
+            bossImagePhaseTwo.src = 'images/bossRG/bossRG' + i + '.png';
+            bossPhaseTwoImages.animation[i - 1] = bossImagePhaseTwo;
+
+            var laserImage = new Image();
+            laserImage.src = 'images/laser/laser' + i + '.png';
+            bossImages.laserAnimation[i - 1] = laserImage;
+
+            var redLaserImage = new Image();
+            redLaserImage.src = 'images/laser rojo/laser rojo' + i + '.png';
+            bossPhaseTwoLaserImages.animation[i - 1] = redLaserImage;
+
+            var kamikazeImage = new Image();
+            kamikazeImage.src = 'images/loco/loco' + i + '.png';
+            kamikazeImages.animation[i - 1] = kamikazeImage;
         }
 
         evilImages.killed.src = 'images/malo_muerto.png';
-        bossImages.killed.src = 'images/jefe_muerto.png';
+        legacyBossImages.killed.src = 'images/jefe_muerto.png';
+        bossImages.killed.src = 'images/bossF/bossF8.png';
+        kamikazeImages.killed.src = 'images/loco/loco8.png';
 
         bgMain = new Image();
         bgMain.src = 'images/fondovertical.png';
@@ -115,6 +171,18 @@ var gameModular = (function (global) {
         playerNormalImage.src = 'images/bueno.png';
         playerShieldImage = new Image();
         playerShieldImage.src = 'images/escudo_personaje.png';
+        playerLifeHeartImage = new Image();
+        playerLifeHeartImage.src = 'images/vida_medusa.png';
+        hudShieldIconImage = new Image();
+        hudShieldIconImage.src = 'images/power_up_escudo.png';
+        hudTripleIconImage = new Image();
+        hudTripleIconImage.src = 'images/power_up_disparo.png';
+
+        menuMusic = new Audio('music/musica_menu_inicio.wav');
+        menuMusic.preload = 'auto';
+        menuMusic.loop = true;
+        menuMusic.volume = menuMusicBaseVolume;
+        
 
         gameMusic = new Audio('music/musica_durante_juego.wav');
         gameMusic.preload = 'auto';
@@ -127,10 +195,73 @@ var gameModular = (function (global) {
         powerUpSound.preload = 'auto';
         enemyExplosionSound = new Audio('music/sonido_explosion_enemigos.wav');
         enemyExplosionSound.preload = 'auto';
+        bossMusic = new Audio('music/musica_boss_final.mp3');
+        bossMusic.preload = 'auto';
+        bossMusic.loop = true;
+        bossMusic.volume = bossMusicBaseVolume;
         winGameSound = new Audio('music/sonido_win_game.wav');
         winGameSound.preload = 'auto';
         gameOverSound = new Audio('music/sonido_game_over.wav');
         gameOverSound.preload = 'auto';
+    }
+
+    function playBossMusic() {
+        if (!bossMusic || gamePhase !== 'playing') {
+            return;
+        }
+        if (!(evil instanceof FinalBoss)) {
+            return;
+        }
+        if (!bossMusic.paused) {
+            return;
+        }
+        bossMusic.volume = bossMusicBaseVolume;
+        bossMusic.play().catch(function () {
+            return null;
+        });
+    }
+
+    function stopBossMusic(resetPosition) {
+        if (!bossMusic) {
+            return;
+        }
+        bossMusic.pause();
+        if (resetPosition) {
+            bossMusic.currentTime = 0;
+        }
+    }
+
+    function playMenuMusic() {
+        if (!menuMusic) {
+            return;
+        }
+        if (!menuMusic.paused) {
+            return;
+        }
+        menuMusic.volume = menuMusicBaseVolume;
+        menuMusic.play().catch(function () {
+            return null;
+        });
+    }
+
+    function unlockMenuAudio() {
+        if (hasUnlockedMenuAudio) {
+            return;
+        }
+        hasUnlockedMenuAudio = true;
+        if (gamePhase === 'menu') {
+            playMenuMusic();
+        }
+    }
+
+    function stopMenuMusic(resetPosition) {
+        if (!menuMusic) {
+            return;
+        }
+        menuMusic.pause();
+        if (resetPosition) {
+            menuMusic.currentTime = 0;
+        }
     }
 
     function playGameMusic() {
@@ -138,6 +269,12 @@ var gameModular = (function (global) {
             return;
         }
         if (youLoose || congratulations) {
+            return;
+        }
+        if (gamePhase !== 'playing') {
+            return;
+        }
+        if (evil instanceof FinalBoss) {
             return;
         }
         if (!gameMusic.paused) {
@@ -274,6 +411,14 @@ var gameModular = (function (global) {
     }
 
     function init() {
+        canvas = document.getElementById('canvas');
+        ctx = canvas.getContext('2d');
+
+        buffer = document.createElement('canvas');
+        buffer.width = canvas.width;
+        buffer.height = canvas.height;
+        bufferctx = buffer.getContext('2d');
+
         scoreboardSystem = global.ScoreboardSystem.create({
             totalBestScoresToShow: totalBestScoresToShow
         });
@@ -286,25 +431,47 @@ var gameModular = (function (global) {
             coolRateHoldingFire: 10,
             overheatLockMs: 1400
         });
+
+        startScreenScene = global.StartScreenScene.create({
+            onPlay: startGame,
+            getBestScore: function () {
+                return scoreboardSystem.getBestScore();
+            },
+            onSelectSkin: function (skinPath) {
+                selectedPlayerSkinSrc = skinPath;
+            }
+        });
+
+        pauseScene = global.PauseScene.create({
+            onResume: resumeGame,
+            onHome: goToMenu
+        });
+
+        gameOverScene = global.GameOverScene.create({
+            onHome: goToMenu,
+            onRestart: startGame
+        });
+
+        victoryScene = global.VictoryScene.create({
+            onHome: goToMenu,
+            onRestart: startGame
+        });
+
         preloadImages();
         powerUpSystem.preloadImages();
         scoreboardSystem.renderList('puntuaciones');
-        playGameMusic();
 
-        canvas = document.getElementById('canvas');
-        ctx = canvas.getContext('2d');
+        startScreenScene.show();
+        pauseScene.hide();
+        gameOverScene.hide();
+        victoryScene.hide();
+        gamePhase = 'menu';
+        playMenuMusic();
+        drawBackground();
+        draw();
 
-        buffer = document.createElement('canvas');
-        buffer.width = canvas.width;
-        buffer.height = canvas.height;
-        bufferctx = buffer.getContext('2d');
-
-        player = new Player(maxPlayerLife, 0);
-        lastFrameTime = new Date().getTime();
-        evilCounter = 1;
-        createNewEvil();
-        setLevelMessage('Nivel 1', 2200);
-
+        addListener(document, 'pointerdown', unlockMenuAudio);
+        addListener(document, 'touchstart', unlockMenuAudio);
         addListener(document, 'keydown', keyDown);
         addListener(document, 'keyup', keyUp);
 
@@ -313,6 +480,111 @@ var gameModular = (function (global) {
             requestAnimFrame(anim);
         }
         anim();
+    }
+
+    function resetRunState() {
+        totalEvils = 7;
+        initialTotalEvils = totalEvils;
+        evilCounter = 1;
+        youLoose = false;
+        congratulations = false;
+        levelOneCompleted = false;
+        levelTwoShown = false;
+        playedWinSound = false;
+        playedGameOverSound = false;
+        hasShownFinalScene = false;
+        nextPlayerShot = 0;
+        now = 0;
+        keyPressed = {};
+        playerShotsBuffer.splice(0, playerShotsBuffer.length);
+        evilShotsBuffer.splice(0, evilShotsBuffer.length);
+        bossMinions.splice(0, bossMinions.length);
+        powerUpSystem.clear();
+        if (evil) {
+            evil.dead = true;
+            healthBarSystem.clearEnemy(evil);
+        }
+        weaponHeatSystem = global.WeaponHeatSystem.create({
+            maxHeat: 100,
+            heatPerShot: 12,
+            coolRateIdle: 26,
+            coolRateHoldingFire: 10,
+            overheatLockMs: 1400
+        });
+    }
+
+    function startGame() {
+        if (winGameSound) {
+            winGameSound.pause();
+            winGameSound.currentTime = 0;
+        }
+        if (gameOverSound) {
+            gameOverSound.pause();
+            gameOverSound.currentTime = 0;
+        }
+        stopBossMusic(true);
+        resetRunState();
+        stopMenuMusic(true);
+        startScreenScene.hide();
+        pauseScene.hide();
+        gameOverScene.hide();
+        victoryScene.hide();
+        player = new Player(maxPlayerLife, 0);
+        createNewEvil();
+        setLevelMessage('Nivel 1', 2200);
+        gamePhase = 'playing';
+        lastFrameTime = new Date().getTime();
+        playGameMusic();
+    }
+
+    function pauseGame() {
+        if (gamePhase !== 'playing') {
+            return;
+        }
+        gamePhase = 'paused';
+        keyPressed = {};
+        if (gameMusic && !gameMusic.paused) {
+            gameMusic.pause();
+        }
+        if (bossMusic && !bossMusic.paused) {
+            bossMusic.pause();
+        }
+        pauseScene.show();
+    }
+
+    function resumeGame() {
+        if (gamePhase !== 'paused') {
+            return;
+        }
+        pauseScene.hide();
+        gamePhase = 'playing';
+        lastFrameTime = new Date().getTime();
+        if (evil instanceof FinalBoss) {
+            playBossMusic();
+        } else {
+            playGameMusic();
+        }
+    }
+
+    function goToMenu() {
+        stopGameMusic(250);
+        stopBossMusic(true);
+        stopMenuMusic(false);
+        if (winGameSound) {
+            winGameSound.pause();
+            winGameSound.currentTime = 0;
+        }
+        if (gameOverSound) {
+            gameOverSound.pause();
+            gameOverSound.currentTime = 0;
+        }
+        resetRunState();
+        startScreenScene.show();
+        pauseScene.hide();
+        gameOverScene.hide();
+        victoryScene.hide();
+        gamePhase = 'menu';
+        playMenuMusic();
     }
 
     function getRandomNumber(range) {
@@ -327,6 +599,20 @@ var gameModular = (function (global) {
         return player.height || 66;
     }
 
+    function getSafeEvilWidth() {
+        if (!evil) {
+            return 0;
+        }
+        return evil.renderWidth || evil.width || evil.image.width;
+    }
+
+    function getSafeEvilHeight() {
+        if (!evil) {
+            return 0;
+        }
+        return evil.renderHeight || evil.height || evil.image.height;
+    }
+
     function Player(life, score) {
         var settings = {
             marginBottom: 10,
@@ -334,7 +620,7 @@ var gameModular = (function (global) {
         };
 
         player = new Image();
-        player.src = playerNormalImage.src;
+        player.src = selectedPlayerSkinSrc || playerNormalImage.src;
         player.posX = (canvas.width / 2) - 33;
         player.posY = canvas.height - (player.height === 0 ? settings.defaultHeight : player.height) - settings.marginBottom;
         player.life = life;
@@ -449,6 +735,27 @@ var gameModular = (function (global) {
             }
         };
 
+        player.killPlayerWithoutReset = function () {
+            if (!this.canReceiveDamage()) {
+                return;
+            }
+
+            if (this.hasShield) {
+                this.removeShield();
+                this.damageCooldownUntil = new Date().getTime() + 700;
+                return;
+            }
+
+            if (this.life > 1) {
+                this.life -= 1;
+                this.damageCooldownUntil = new Date().getTime() + 900;
+                evilShotsBuffer.splice(0, evilShotsBuffer.length);
+            } else {
+                saveFinalScore();
+                youLoose = true;
+            }
+        };
+
         return player;
     }
 
@@ -472,8 +779,8 @@ var gameModular = (function (global) {
             return !evil.dead && global.CollisionSystem.isPointInsideRect(this.posX, this.posY, {
                 posX: evil.posX,
                 posY: evil.posY,
-                width: evil.image.width,
-                height: evil.image.height
+                width: getSafeEvilWidth(),
+                height: getSafeEvilHeight()
             });
         };
     }
@@ -628,13 +935,322 @@ var gameModular = (function (global) {
     Evil.prototype = Object.create(Enemy.prototype);
     Evil.prototype.constructor = Evil;
 
-    function FinalBoss() {
-        Enemy.call(this, finalBossLife, finalBossShots, bossImages);
-        this.goDownSpeed = evilSpeed / 2;
-        this.pointsToKill = 20;
+    function BossBatMinion() {
+        this.image = legacyBossImages.animation[0];
+        this.imageNumber = 1;
+        this.animation = 0;
+        this.renderWidth = 92;
+        this.renderHeight = 70;
+        this.posX = 20 + getRandomNumber(canvas.width - this.renderWidth - 40);
+        this.posY = -this.renderHeight;
+        this.life = 2;
+        this.maxLife = 2;
+        this.speed = 2.2;
+        this.dead = false;
+        this.pointsToKill = 35;
+        this.shootCount = 2;
+        this.nextShootAt = new Date().getTime() + 800 + getRandomNumber(800);
+
+        this.update = function () {
+            this.posY += this.speed;
+            this.animation++;
+            if (this.animation > 5) {
+                this.animation = 0;
+                this.imageNumber++;
+                if (this.imageNumber > 8) {
+                    this.imageNumber = 1;
+                }
+                this.image = legacyBossImages.animation[this.imageNumber - 1];
+            }
+
+            if (!this.dead && this.shootCount > 0 && new Date().getTime() >= this.nextShootAt) {
+                var shot = new EvilShot(this.posX + (this.renderWidth / 2) - 5, this.posY + this.renderHeight);
+                shot.speed = shotSpeed + 0.8;
+                shot.add();
+                this.shootCount--;
+                this.nextShootAt = new Date().getTime() + 650 + getRandomNumber(650);
+            }
+        };
+
+        this.isOutOfScreen = function () {
+            return this.posY > (canvas.height + 40);
+        };
+
+        this.kill = function () {
+            this.dead = true;
+            this.image = legacyBossImages.killed;
+            player.score += this.pointsToKill;
+        };
     }
-    FinalBoss.prototype = Object.create(Enemy.prototype);
-    FinalBoss.prototype.constructor = FinalBoss;
+
+    function KamikazeMinion() {
+        this.image = kamikazeImages.animation[0];
+        this.imageNumber = 1;
+        this.animation = 0;
+        this.renderWidth = 68;
+        this.renderHeight = 68;
+        this.posX = 20 + getRandomNumber(canvas.width - this.renderWidth - 40);
+        this.posY = -this.renderHeight;
+        this.life = 1;
+        this.maxLife = 1;
+        this.dead = false;
+        this.pointsToKill = 45;
+        this.lockTargetAt = new Date().getTime() + 1000;
+        this.hasLockedTarget = false;
+        this.vx = 0;
+        this.vy = 1.1;
+
+        this.update = function () {
+            this.animation++;
+            if (this.animation > 5) {
+                this.animation = 0;
+                this.imageNumber++;
+                if (this.imageNumber > 8) {
+                    this.imageNumber = 1;
+                }
+                this.image = kamikazeImages.animation[this.imageNumber - 1];
+            }
+
+            if (!this.hasLockedTarget && new Date().getTime() >= this.lockTargetAt) {
+                var centerX = this.posX + (this.renderWidth / 2);
+                var centerY = this.posY + (this.renderHeight / 2);
+                var targetX = player.posX + (getSafePlayerWidth() / 2);
+                var targetY = player.posY + (getSafePlayerHeight() / 2);
+                var dx = targetX - centerX;
+                var dy = targetY - centerY;
+                var distance = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+                var speed = 5.2;
+                this.vx = (dx / distance) * speed;
+                this.vy = (dy / distance) * speed;
+                this.hasLockedTarget = true;
+            }
+
+            this.posX += this.vx;
+            this.posY += this.vy;
+        };
+
+        this.isOutOfScreen = function () {
+            return this.posY > (canvas.height + 60) || this.posY < -120 || this.posX < -120 || this.posX > (canvas.width + 120);
+        };
+
+        this.kill = function () {
+            this.dead = true;
+            this.image = kamikazeImages.killed;
+            player.score += this.pointsToKill;
+        };
+    }
+
+    function FinalBoss() {
+        var self = this;
+
+        this.image = bossImages.animation[0];
+        this.imageNumber = 1;
+        this.animation = 0;
+        this.renderWidth = 250;
+        this.renderHeight = 170;
+        this.posX = (canvas.width - this.renderWidth) / 2;
+        this.posY = 12;
+        this.life = finalBossLife;
+        this.maxLife = this.life;
+        this.dead = false;
+        this.speed = 1.2;
+        this.direction = 'D';
+        this.minX = 24;
+        this.maxX = canvas.width - this.renderWidth - 24;
+        this.phaseTwo = false;
+        this.phaseTwoThreshold = this.maxLife * 0.5;
+        this.phaseTwoArmorHitsRequired = 3;
+        this.phaseTwoArmorHitCounter = 0;
+        this.currentAnimationFrames = bossImages.animation;
+        this.currentLaserFrames = bossImages.laserAnimation;
+        this.nextBatSpawnAt = 0;
+        this.nextKamikazeSpawnAt = 0;
+
+        this.laserFrame = 0;
+        this.laserTick = 0;
+        this.laserWarningActive = false;
+        this.laserWarningDurationMs = finalBossLaserWarningDurationMs;
+        this.laserWarningEndAt = 0;
+        this.laserActive = false;
+        this.laserDurationMs = finalBossLaserDurationMs;
+        this.laserEndAt = 0;
+        this.nextLaserAt = new Date().getTime() + 1800;
+        this.laserMinCooldown = 2300;
+        this.laserMaxCooldown = 3800;
+
+        this.pointsToKill = 500;
+
+        this.kill = function () {
+            this.dead = true;
+            this.laserWarningActive = false;
+            this.laserActive = false;
+            stopBossMusic(false);
+            healthBarSystem.clearEnemy(this);
+            totalEvils--;
+            this.image = bossImages.killed;
+            verifyToCreateNewEvil();
+        };
+
+        this.enterPhaseTwo = function () {
+            this.phaseTwo = true;
+            this.currentAnimationFrames = bossPhaseTwoImages.animation;
+            this.currentLaserFrames = bossPhaseTwoLaserImages.animation;
+            this.speed = 2.15;
+            this.laserMinCooldown = 1700;
+            this.laserMaxCooldown = 2900;
+            this.nextBatSpawnAt = new Date().getTime() + 1200;
+            this.nextKamikazeSpawnAt = new Date().getTime() + 1800;
+            setLevelMessage('Fase 2', 1800);
+        };
+
+        this.update = function () {
+            var nowMs = new Date().getTime();
+
+            if (!this.phaseTwo && this.life <= this.phaseTwoThreshold) {
+                this.enterPhaseTwo();
+            }
+
+            if (this.direction === 'D') {
+                this.posX += this.speed;
+                if (this.posX >= this.maxX) {
+                    this.posX = this.maxX;
+                    this.direction = 'I';
+                }
+            } else {
+                this.posX -= this.speed;
+                if (this.posX <= this.minX) {
+                    this.posX = this.minX;
+                    this.direction = 'D';
+                }
+            }
+
+            this.animation++;
+            if (this.animation > 5) {
+                this.animation = 0;
+                this.imageNumber++;
+                if (this.imageNumber > 8) {
+                    this.imageNumber = 1;
+                }
+                this.image = this.currentAnimationFrames[this.imageNumber - 1];
+            }
+
+            if (this.phaseTwo) {
+                if (nowMs >= this.nextBatSpawnAt) {
+                    bossMinions.push(new BossBatMinion());
+                    this.nextBatSpawnAt = nowMs + 2100 + getRandomNumber(2200);
+                }
+                if (nowMs >= this.nextKamikazeSpawnAt) {
+                    bossMinions.push(new KamikazeMinion());
+                    this.nextKamikazeSpawnAt = nowMs + 2400 + getRandomNumber(2600);
+                }
+            }
+
+            if (!this.laserActive && !this.laserWarningActive && nowMs >= this.nextLaserAt) {
+                this.laserWarningActive = true;
+                this.laserWarningEndAt = nowMs + this.laserWarningDurationMs;
+            }
+
+            if (this.laserWarningActive && nowMs >= this.laserWarningEndAt) {
+                this.laserWarningActive = false;
+                this.laserActive = true;
+                this.laserEndAt = nowMs + this.laserDurationMs;
+                this.laserFrame = 0;
+                this.laserTick = 0;
+            }
+
+            if (this.laserActive) {
+                this.laserTick++;
+                if (this.laserTick >= 3) {
+                    this.laserTick = 0;
+                    this.laserFrame = (this.laserFrame + 1) % bossImages.laserAnimation.length;
+                }
+                if (nowMs >= this.laserEndAt) {
+                    this.laserActive = false;
+                    this.nextLaserAt = nowMs + this.laserMinCooldown + getRandomNumber(this.laserMaxCooldown - this.laserMinCooldown);
+                }
+            }
+        };
+
+        this.isOutOfScreen = function () {
+            return false;
+        };
+
+        this.getLaserRect = function () {
+            var width = Math.floor(canvas.width * finalBossLaserWidthRatio);
+            var bossCenterX = this.posX + (this.renderWidth / 2);
+            var x = Math.floor(bossCenterX - (width / 2));
+            var y = this.posY + this.renderHeight - 18;
+
+            if (x < 0) {
+                x = 0;
+            }
+            if (x + width > canvas.width) {
+                x = canvas.width - width;
+            }
+
+            return {
+                posX: x,
+                posY: y,
+                width: width,
+                height: canvas.height - y
+            };
+        };
+
+        this.drawLaserWarning = function () {
+            var rect;
+            if (!self.laserWarningActive) {
+                return;
+            }
+
+            rect = self.getLaserRect();
+            bufferctx.save();
+            bufferctx.fillStyle = 'rgba(255, 70, 70, 0.18)';
+            bufferctx.fillRect(rect.posX, rect.posY, rect.width, rect.height);
+
+            bufferctx.strokeStyle = 'rgba(255, 230, 120, 0.95)';
+            bufferctx.lineWidth = 3;
+            if (typeof bufferctx.setLineDash === 'function') {
+                bufferctx.setLineDash([8, 6]);
+            }
+            bufferctx.strokeRect(rect.posX + 1.5, rect.posY + 1.5, rect.width - 3, rect.height - 3);
+            if (typeof bufferctx.setLineDash === 'function') {
+                bufferctx.setLineDash([]);
+            }
+
+            bufferctx.fillStyle = '#ffe86a';
+            bufferctx.font = 'bold 46px Arial';
+            bufferctx.textAlign = 'center';
+            bufferctx.fillText('!', rect.posX + (rect.width / 2), rect.posY - 10);
+            bufferctx.textAlign = 'start';
+            bufferctx.restore();
+        };
+
+        this.drawLaser = function () {
+            var rect;
+            var laserImage;
+            if (!self.laserActive) {
+                return;
+            }
+
+            rect = self.getLaserRect();
+            laserImage = self.currentLaserFrames[self.laserFrame] || self.currentLaserFrames[0];
+            if (laserImage) {
+                bufferctx.drawImage(laserImage, rect.posX, rect.posY, rect.width, rect.height);
+            }
+        };
+
+        this.isLaserHittingPlayer = function () {
+            if (!self.laserActive) {
+                return false;
+            }
+            return global.CollisionSystem.isRectOverlap(self.getLaserRect(), {
+                posX: player.posX,
+                posY: player.posY,
+                width: getSafePlayerWidth(),
+                height: getSafePlayerHeight()
+            });
+        };
+    }
 
     function verifyToCreateNewEvil() {
         if (totalEvils > 0) {
@@ -650,7 +1266,6 @@ var gameModular = (function (global) {
             }, nextEnemySpawnMinDelay + getRandomNumber(spawnDelayRange));
         } else {
             setTimeout(function () {
-                saveFinalScore();
                 congratulations = true;
             }, 2000);
         }
@@ -661,14 +1276,21 @@ var gameModular = (function (global) {
         if (evil && !evil.dead) {
             evil.dead = true;
         }
+        // Evita que disparos del jugador arrastrados peguen al siguiente enemigo (incluido el boss).
+        playerShotsBuffer.splice(0, playerShotsBuffer.length);
         // Limpia disparos huérfanos cuando cambia el enemigo activo.
         evilShotsBuffer.splice(0, evilShotsBuffer.length);
+        bossMinions.splice(0, bossMinions.length);
 
         if (totalEvils !== 1) {
+            stopBossMusic(true);
             var lifeScale = Math.floor((evilCounter - 1) / 2);
             evil = new Evil(evilLife + lifeScale, evilShots + evilCounter - 1);
+            playGameMusic();
         } else {
             evil = new FinalBoss();
+            stopGameMusic(250);
+            playBossMusic();
             if (!levelTwoShown) {
                 levelTwoShown = true;
                 setLevelMessage('Nivel 2', 2200);
@@ -680,8 +1302,8 @@ var gameModular = (function (global) {
         return global.CollisionSystem.isEnemyHittingPlayer({
             posX: evil.posX,
             posY: evil.posY,
-            width: evil.image.width,
-            height: evil.image.height
+            width: getSafeEvilWidth(),
+            height: getSafeEvilHeight()
         }, {
             posX: player.posX,
             posY: player.posY,
@@ -690,10 +1312,114 @@ var gameModular = (function (global) {
         });
     }
 
+    function drawEvil() {
+        if (evil.renderWidth && evil.renderHeight) {
+            bufferctx.drawImage(evil.image, evil.posX, evil.posY, evil.renderWidth, evil.renderHeight);
+            return;
+        }
+        bufferctx.drawImage(evil.image, evil.posX, evil.posY);
+    }
+
+    function getEntityWidth(entity) {
+        return entity.renderWidth || entity.width || entity.image.width;
+    }
+
+    function getEntityHeight(entity) {
+        return entity.renderHeight || entity.height || entity.image.height;
+    }
+
+    function isMinionHittingPlayer(minion) {
+        return global.CollisionSystem.isEnemyHittingPlayer({
+            posX: minion.posX,
+            posY: minion.posY,
+            width: getEntityWidth(minion),
+            height: getEntityHeight(minion)
+        }, {
+            posX: player.posX,
+            posY: player.posY,
+            width: getSafePlayerWidth(),
+            height: getSafePlayerHeight()
+        });
+    }
+
+    function drawBossMinions() {
+        var i;
+        for (i = 0; i < bossMinions.length; i++) {
+            var minion = bossMinions[i];
+            if (!minion || minion.dead) {
+                continue;
+            }
+            bufferctx.drawImage(minion.image, minion.posX, minion.posY, getEntityWidth(minion), getEntityHeight(minion));
+        }
+    }
+
+    function updateBossMinions() {
+        var i;
+        for (i = 0; i < bossMinions.length; i++) {
+            var minion = bossMinions[i];
+            if (!minion || minion.dead) {
+                continue;
+            }
+
+            minion.update();
+
+            if (isMinionHittingPlayer(minion)) {
+                minion.dead = true;
+                if (evil instanceof FinalBoss) {
+                    player.killPlayerWithoutReset();
+                } else {
+                    player.killPlayer();
+                }
+                continue;
+            }
+
+            if (minion.isOutOfScreen()) {
+                minion.dead = true;
+            }
+        }
+
+        bossMinions = bossMinions.filter(function (minion) {
+            return minion && !minion.dead;
+        });
+    }
+
     function checkCollisions(shot) {
+        var i;
+
+        for (i = 0; i < bossMinions.length; i++) {
+            var minion = bossMinions[i];
+            if (!minion || minion.dead) {
+                continue;
+            }
+
+            if (global.CollisionSystem.isPointInsideRect(shot.posX, shot.posY, {
+                posX: minion.posX,
+                posY: minion.posY,
+                width: getEntityWidth(minion),
+                height: getEntityHeight(minion)
+            })) {
+                if (minion.life > 1) {
+                    minion.life--;
+                } else {
+                    playEnemyExplosionSound();
+                    minion.kill();
+                }
+                shot.deleteShot(parseInt(shot.identifier, 10));
+                return false;
+            }
+        }
+
         if (shot.isHittingEvil()) {
             if (evil.life > 1) {
-                evil.life--;
+                if (evil instanceof FinalBoss && evil.phaseTwo) {
+                    evil.phaseTwoArmorHitCounter += 1;
+                    if (evil.phaseTwoArmorHitCounter >= evil.phaseTwoArmorHitsRequired) {
+                        evil.life--;
+                        evil.phaseTwoArmorHitCounter = 0;
+                    }
+                } else {
+                    evil.life--;
+                }
             } else {
                 playEnemyExplosionSound();
                 evil.kill();
@@ -715,11 +1441,23 @@ var gameModular = (function (global) {
     }
 
     function keyDown(e) {
-        if (youLoose || congratulations) {
+        var key = (window.event ? e.keyCode : e.which);
+
+        if (key === 27) {
+            e.preventDefault();
+            if (gamePhase === 'playing') {
+                pauseGame();
+            } else if (gamePhase === 'paused') {
+                resumeGame();
+            }
             return;
         }
+
+        if (gamePhase !== 'playing') {
+            return;
+        }
+
         playGameMusic();
-        var key = (window.event ? e.keyCode : e.which);
         var inkey;
         for (inkey in keyMap) {
             if (key === keyMap[inkey]) {
@@ -765,17 +1503,41 @@ var gameModular = (function (global) {
     }
 
     function showLifeAndScore() {
-        bufferctx.fillStyle = 'rgb(59,59,59)';
+        var heartSize = 26;
+        var heartStartX = canvas.width - 185;
+        var heartY = 30;
+        var hudIconX = canvas.width - 185;
+        var shieldHudY = 70;
+        var tripleHudY = 100;
+        var hudIconSize = 20;
+        var i;
+
+        bufferctx.fillStyle = '#ffffff';
         bufferctx.font = 'bold 16px Arial';
-        bufferctx.fillText('Puntos: ' + player.score, canvas.width - 120, 20);
-        bufferctx.fillText('Vidas: ' + player.life, canvas.width - 120, 40);
-        if (player.hasShield) {
-            bufferctx.fillText('Escudo: x' + player.shieldCharges, canvas.width - 120, 60);
+        bufferctx.shadowColor = 'rgba(0,0,0,0.75)';
+        bufferctx.shadowBlur = 2;
+        bufferctx.fillText('Puntos: ' + player.score, canvas.width - 185, 20);
+
+        for (i = 0; i < player.life; i++) {
+            bufferctx.drawImage(
+                playerLifeHeartImage,
+                heartStartX + (i * (heartSize + 4)),
+                heartY,
+                heartSize,
+                heartSize
+            );
+        }
+
+        if (player.hasShield && player.shieldCharges > 0) {
+            bufferctx.drawImage(hudShieldIconImage, hudIconX, shieldHudY - 15, hudIconSize, hudIconSize);
+            bufferctx.fillText('x' + player.shieldCharges, hudIconX + 26, shieldHudY);
         }
         if (player.hasTripleShot()) {
-            bufferctx.fillText('Triple: SI', canvas.width - 120, 80);
+            bufferctx.drawImage(hudTripleIconImage, hudIconX, tripleHudY - 15, hudIconSize, hudIconSize);
+            bufferctx.fillText('ACTIVO', hudIconX + 26, tripleHudY);
         }
-        weaponHeatSystem.drawHud(bufferctx, new Date().getTime(), canvas.width - 190, 95);
+        bufferctx.shadowBlur = 0;
+        weaponHeatSystem.drawHud(bufferctx, new Date().getTime(), canvas.width - 190, 125);
     }
 
     function updatePlayerShot(playerShot, id) {
@@ -807,7 +1569,11 @@ var gameModular = (function (global) {
             }
         } else {
             evilShot.deleteShot(parseInt(evilShot.identifier, 10));
-            player.killPlayer();
+            if (evil instanceof FinalBoss) {
+                player.killPlayerWithoutReset();
+            } else {
+                player.killPlayer();
+            }
         }
     }
 
@@ -825,6 +1591,10 @@ var gameModular = (function (global) {
         var deltaSec = (currentTime - lastFrameTime) / 1000;
         lastFrameTime = currentTime;
 
+        if (gamePhase !== 'playing') {
+            return;
+        }
+
         drawBackground();
 
         weaponHeatSystem.update({
@@ -834,26 +1604,46 @@ var gameModular = (function (global) {
         });
 
         if (congratulations) {
-            playWinGameSound();
-            showCongratulations();
+            if (!hasShownFinalScene) {
+                hasShownFinalScene = true;
+                stopBossMusic(false);
+                var playerName = prompt('Ganaste! Ingresa tu nombre para registrar puntuacion:', 'Jugador');
+                saveFinalScore(playerName || 'Jugador');
+                scoreboardSystem.renderList('puntuaciones');
+                playWinGameSound();
+                victoryScene.show(getTotalScore());
+                gamePhase = 'end';
+            }
             return;
         }
 
         if (youLoose) {
-            playGameOverSound();
-            showGameOver();
+            if (!hasShownFinalScene) {
+                hasShownFinalScene = true;
+                stopBossMusic(false);
+                playGameOverSound();
+                gameOverScene.show();
+                gamePhase = 'end';
+            }
             return;
         }
 
         drawPlayerWithEffects();
-        bufferctx.drawImage(evil.image, evil.posX, evil.posY);
+        if (evil instanceof FinalBoss) {
+            evil.drawLaserWarning();
+            evil.drawLaser();
+        }
+        drawEvil();
+        drawBossMinions();
         healthBarSystem.drawEnemyBar(bufferctx, evil, {
+            width: getSafeEvilWidth(),
             yOffset: 10,
             height: 7
         });
         drawLevelMessage();
 
         updateEvil();
+        updateBossMinions();
         updatePowerUps();
 
         var j;
@@ -861,8 +1651,16 @@ var gameModular = (function (global) {
             updatePlayerShot(playerShotsBuffer[j], j);
         }
 
+        if (evil instanceof FinalBoss && evil.isLaserHittingPlayer()) {
+            player.killPlayerWithoutReset();
+        }
+
         if (isEvilHittingPlayer()) {
-            player.killPlayer();
+            if (evil instanceof FinalBoss) {
+                player.killPlayerWithoutReset();
+            } else {
+                player.killPlayer();
+            }
         } else {
             var i;
             for (i = 0; i < evilShotsBuffer.length; i++) {
@@ -879,7 +1677,9 @@ var gameModular = (function (global) {
     }
 
     function saveFinalScore() {
-        scoreboardSystem.saveScore(getTotalScore(), 'puntuaciones');
+        var defaultName = youLoose ? 'Derrotado' : 'Jugador';
+        var nameArg = arguments.length > 0 ? arguments[0] : defaultName;
+        scoreboardSystem.saveScore(getTotalScore(), 'puntuaciones', nameArg);
     }
 
     return {

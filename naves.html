@@ -19,6 +19,7 @@
     <script src="js/scenes/start-screen.js"></script>
     <script src="js/scenes/play-scene.js"></script>
     <script src="js/scenes/boss-scene.js"></script>
+    <script src="js/scenes/pause-scene.js"></script>
     <script src="js/scenes/game-over-scene.js"></script>
     <script src="js/scenes/victory-scene.js"></script>
 
@@ -27,12 +28,13 @@
     <body onload="gameModular.init()">
     <div class="contenedor">
         <div class="izquierda">
-                <img src="images/autentia.png" style="width: 250px; height: 100px;" />
+            <img src="images/logo_uis.png"  class="logo-uis" alt="Logo UIS" />
             <ul class="lista">
                 <li class="titulo">CONTROLES:</li>
                 <li class="izquierda">izquierda</li>
                 <li class="derecha">derecha</li>
                 <li class="espacio">disparar</li>
+                <li class="esc">esc: pausar/reanudar</li>
             </ul>
             <ul class="lista">
                 <li class="titulo">PROBADO CON:</li>
@@ -42,7 +44,7 @@
             </ul>
             <ul class="lista">
                 <li class="titulo">OTROS:</li>
-                <li><a>Tutorial</a></li>
+                <li><a id="tutorialLink" href="#">Tutorial</a></li>
                 <li><a>Especificaciones del juego</a></li>
             </ul>
         </div>
@@ -52,6 +54,95 @@
         </div>
         <div class="juego">
             <canvas id="canvas" width="600" height="650">TU NAVEGADOR NO SOPORTA HTML5!</canvas>
+
+            <div id="sceneMenu" class="scene-overlay scene-overlay--menu is-active">
+                <div class="menu-panel">
+                    <h1 class="menu-title">JellyShoot</h1>
+                    <div class="menu-actions">
+                        <button id="btnPlay" class="menu-button menu-button--primary" type="button">Play</button>
+                        <button id="btnWardrobe" class="menu-button menu-button--secondary menu-button--wardrobe" type="button">
+                            <img src="images/skin2.png" alt="Skin 2" class="menu-skin-preview">
+                            <span>Vestuario</span>
+                        </button>
+                        <button id="btnTutorial" class="menu-button menu-button--secondary" type="button">Tutorial</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="sceneWardrobe" class="scene-overlay scene-overlay--menu-sub">
+                <div class="menu-panel">
+                    <h2>Vestuario</h2>
+                    <div class="wardrobe-card" id="wardrobeSkinCardDefault">
+                        <img src="images/bueno.png" alt="Skin verde" class="wardrobe-skin-image">
+                        <h3>Skin Verde (Default)</h3>
+                        <p>Siempre disponible.</p>
+                        <button id="btnSelectSkinDefault" class="menu-button menu-button--primary" type="button">Seleccionar</button>
+                    </div>
+                    <div class="wardrobe-card" id="wardrobeSkinCard">
+                        <img src="images/skin2.png" alt="Skin 2" class="wardrobe-skin-image">
+                        <h3>Skin 2</h3>
+                        <p id="wardrobeUnlockStatus">Bloqueada: alcanza 70 puntos para desbloquear.</p>
+                        <button id="btnSelectSkin2" class="menu-button menu-button--primary" type="button">Seleccionar</button>
+                    </div>
+                    <div class="menu-actions">
+                        <button id="btnWardrobeBack" class="menu-button menu-button--secondary" type="button">Volver</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="sceneTutorial" class="scene-overlay scene-overlay--menu-sub">
+                <div class="menu-panel tutorial-panel">
+                    <h2>Tutorial</h2>
+                    <div class="tutorial-item">
+                        <img src="images/izquierda.png" alt="Izquierda">
+                        <span>Mover a la izquierda</span>
+                    </div>
+                    <div class="tutorial-item">
+                        <img src="images/derecha.png" alt="Derecha">
+                        <span>Mover a la derecha</span>
+                    </div>
+                    <div class="tutorial-item">
+                        <img src="images/space.gif" alt="Espacio">
+                        <span>Disparar (cuidado con el sobrecalentamiento)</span>
+                    </div>
+                    <div class="menu-actions">
+                        <button id="btnTutorialBack" class="menu-button menu-button--secondary" type="button">Volver</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="scenePause" class="scene-overlay scene-overlay--pause">
+                <div class="end-panel">
+                    <h2>Juego en pausa</h2>
+                    <p>Presiona Esc para reanudar o usa un boton.</p>
+                    <div class="end-actions">
+                        <button id="btnPauseResume" class="end-button end-button--restart" type="button">Reanudar juego</button>
+                        <button id="btnPauseHome" class="end-button" type="button">Volver al inicio</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="sceneGameOver" class="scene-overlay scene-overlay--end">
+                <div class="end-panel">
+                    <h2>Game Over</h2>
+                    <p>Intentalo de nuevo y supera tu puntuacion.</p>
+                    <div class="end-actions">
+                        <button id="btnGameOverHome" class="end-button" type="button">⌂ Inicio</button>
+                        <button id="btnGameOverRestart" class="end-button end-button--restart" type="button">Restart</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="sceneVictory" class="scene-overlay scene-overlay--end">
+                <div class="end-panel">
+                    <h2>Victoria</h2>
+                    <p id="victoryScore">Puntuacion total: 0</p>
+                    <div class="end-actions">
+                        <button id="btnVictoryHome" class="end-button" type="button">⌂ Inicio</button>
+                        <button id="btnVictoryRestart" class="end-button end-button--restart" type="button">Restart</button>
+                    </div>
+                </div>
+            </div>
         </div>
 
     </div>

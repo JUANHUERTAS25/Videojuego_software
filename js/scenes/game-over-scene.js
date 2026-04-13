@@ -1,10 +1,39 @@
-// Escena de derrota (esqueleto de migracion)
 (function (global) {
-    global.GameOverScene = {
-        render: function (ctx, canvas) {
-            ctx.fillStyle = 'rgb(255,0,0)';
-            ctx.font = 'bold 35px Arial';
-            ctx.fillText('GAME OVER', canvas.width / 2 - 100, canvas.height / 2);
+    function create(options) {
+        var root = document.getElementById('sceneGameOver');
+        var homeBtn = document.getElementById('btnGameOverHome');
+        var restartBtn = document.getElementById('btnGameOverRestart');
+
+        if (homeBtn) {
+            homeBtn.addEventListener('click', function () {
+                options.onHome();
+            });
         }
+        if (restartBtn) {
+            restartBtn.addEventListener('click', function () {
+                options.onRestart();
+            });
+        }
+
+        function show() {
+            if (root) {
+                root.classList.add('is-active');
+            }
+        }
+
+        function hide() {
+            if (root) {
+                root.classList.remove('is-active');
+            }
+        }
+
+        return {
+            show: show,
+            hide: hide
+        };
+    }
+
+    global.GameOverScene = {
+        create: create
     };
 })(window);

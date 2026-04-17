@@ -33,10 +33,21 @@ var gameModular = (function (global) {
         evilShots = 5,
         evilLife = 3,
         finalBossShots = 30,
-        finalBossLife = 12,
+        finalBossLife = 22,
         finalBossLaserWarningDurationMs = 900,
         finalBossLaserWidthRatio = 0.5,
         finalBossLaserDurationMs = 1300,
+        levelConfigs = [
+            { enemyCount: 8, enemyLife: 2, enemyShots: 3, enemyDownSpeed: 0.95, enemyHorizontalSpeed: 0.9, enemyShotSpeed: 4.6, enemyShootMinDelay: 1200, enemyShootMaxDelay: 2900, spawnMinDelay: 760, spawnMaxDelay: 1300, pointsPerEnemy: 11, mix: { bat: 65, tomb: 25, kamikaze: 10 } },
+            { enemyCount: 10, enemyLife: 3, enemyShots: 4, enemyDownSpeed: 1.02, enemyHorizontalSpeed: 1.0, enemyShotSpeed: 4.9, enemyShootMinDelay: 1050, enemyShootMaxDelay: 2500, spawnMinDelay: 690, spawnMaxDelay: 1180, pointsPerEnemy: 13, mix: { bat: 50, tomb: 30, kamikaze: 20 } },
+            { enemyCount: 12, enemyLife: 3, enemyShots: 5, enemyDownSpeed: 1.1, enemyHorizontalSpeed: 1.1, enemyShotSpeed: 5.3, enemyShootMinDelay: 930, enemyShootMaxDelay: 2200, spawnMinDelay: 620, spawnMaxDelay: 1060, pointsPerEnemy: 16, mix: { bat: 40, tomb: 35, kamikaze: 25 } }
+        ],
+        currentLevelIndex = 0,
+        enemiesRemainingInLevel = 0,
+        bossIntroActive = false,
+        bossIntroPendingSpawn = false,
+        bossIntroUntil = 0,
+        bossIntroDurationMs = 4600,
         totalBestScoresToShow = 5,
         nextPlayerShot = 0,
         playerShotDelay = 200,
@@ -58,10 +69,15 @@ var gameModular = (function (global) {
         gameMusicBaseVolume = 0.75,
         gameMusicFadeTimer = null,
         shotSound,
+        hitSound,
         powerUpSound,
         enemyExplosionSound,
         bossMusic,
         bossMusicBaseVolume = 0.78,
+        bossLaserSound,
+        bossLaserSoundClipTimer = null,
+        evilLaughterSound,
+        evilLaughterClipTimer = null,
         winGameSound,
         gameOverSound,
         scoreboardSystem,
@@ -191,6 +207,8 @@ var gameModular = (function (global) {
 
         shotSound = new Audio('music/sonido_disparo.wav');
         shotSound.preload = 'auto';
+        hitSound = new Audio('music/Hit.wav');
+        hitSound.preload = 'auto';
         powerUpSound = new Audio('music/sonido_power_up.wav');
         powerUpSound.preload = 'auto';
         enemyExplosionSound = new Audio('music/sonido_explosion_enemigos.wav');
@@ -199,10 +217,27 @@ var gameModular = (function (global) {
         bossMusic.preload = 'auto';
         bossMusic.loop = true;
         bossMusic.volume = bossMusicBaseVolume;
+        bossLaserSound = new Audio('music/sonido de rayo laser jefe final.mp3');
+        bossLaserSound.preload = 'auto';
+        bossLaserSound.loop = false;
+        evilLaughterSound = new Audio('music/evil laughter.mp3');
+        evilLaughterSound.preload = 'auto';
+        evilLaughterSound.loop = false;
         winGameSound = new Audio('music/sonido_win_game.wav');
         winGameSound.preload = 'auto';
         gameOverSound = new Audio('music/sonido_game_over.wav');
         gameOverSound.preload = 'auto';
+    }
+
+    function playHitSound() {
+        if (!hitSound) {
+            return;
+        }
+        var hitInstance = hitSound.cloneNode();
+        hitInstance.volume = 0.55;
+        hitInstance.play().catch(function () {
+            return null;
+        });
     }
 
     function playBossMusic() {
@@ -228,6 +263,107 @@ var gameModular = (function (global) {
         bossMusic.pause();
         if (resetPosition) {
             bossMusic.currentTime = 0;
+        }
+    }
+
+    function playBossLaserSoundSegment() {
+        var clipStart = 9;
+        var clipEnd = 12;
+        var clipDurationMs = (clipEnd - clipStart) * 1000;
+
+        if (!bossLaserSound) {
+            return;
+        }
+
+        if (bossLaserSoundClipTimer) {
+            clearTimeout(bossLaserSoundClipTimer);
+            bossLaserSoundClipTimer = null;
+        }
+
+        bossLaserSound.pause();
+        try {
+            bossLaserSound.currentTime = clipStart;
+        } catch (error) {
+            return;
+        }
+        bossLaserSound.volume = 0.8;
+        bossLaserSound.play().catch(function () {
+            return null;
+        });
+
+        bossLaserSoundClipTimer = setTimeout(function () {
+            if (bossLaserSound) {
+                bossLaserSound.pause();
+            }
+            bossLaserSoundClipTimer = null;
+        }, clipDurationMs);
+    }
+
+    function stopBossLaserSound(resetPosition) {
+        if (!bossLaserSound) {
+            return;
+        }
+        if (bossLaserSoundClipTimer) {
+            clearTimeout(bossLaserSoundClipTimer);
+            bossLaserSoundClipTimer = null;
+        }
+        bossLaserSound.pause();
+        if (resetPosition) {
+            try {
+                bossLaserSound.currentTime = 0;
+            } catch (error) {
+                return;
+            }
+        }
+    }
+
+    function playBossIntroLaughterSegment() {
+        var clipStart = 31;
+        var clipDurationMs = bossIntroDurationMs;
+
+        if (!evilLaughterSound) {
+            return;
+        }
+
+        if (evilLaughterClipTimer) {
+            clearTimeout(evilLaughterClipTimer);
+            evilLaughterClipTimer = null;
+        }
+
+        evilLaughterSound.pause();
+        try {
+            evilLaughterSound.currentTime = clipStart;
+        } catch (error) {
+            return;
+        }
+        evilLaughterSound.volume = 0.82;
+        evilLaughterSound.play().catch(function () {
+            return null;
+        });
+
+        evilLaughterClipTimer = setTimeout(function () {
+            if (evilLaughterSound) {
+                evilLaughterSound.pause();
+            }
+            evilLaughterClipTimer = null;
+        }, clipDurationMs);
+    }
+
+    function stopBossIntroLaughter(resetPosition) {
+        if (!evilLaughterSound) {
+            return;
+        }
+        if (evilLaughterClipTimer) {
+            clearTimeout(evilLaughterClipTimer);
+            evilLaughterClipTimer = null;
+        }
+        evilLaughterSound.pause();
+        if (resetPosition) {
+            try {
+                evilLaughterSound.currentTime = 0;
+            } catch (error) {
+                return;
+            }
         }
     }
 
@@ -272,6 +408,9 @@ var gameModular = (function (global) {
             return;
         }
         if (gamePhase !== 'playing') {
+            return;
+        }
+        if (bossIntroActive) {
             return;
         }
         if (evil instanceof FinalBoss) {
@@ -336,6 +475,50 @@ var gameModular = (function (global) {
         bufferctx.textAlign = 'center';
         bufferctx.fillText(levelMessage, canvas.width / 2, canvas.height / 2);
         bufferctx.textAlign = 'start';
+    }
+
+    function getCurrentLevelConfig() {
+        return levelConfigs[Math.max(0, Math.min(currentLevelIndex, levelConfigs.length - 1))];
+    }
+
+    function getCurrentLevelNumber() {
+        return currentLevelIndex + 1;
+    }
+
+    function createLevelEnemy(levelConfig) {
+        var mix = levelConfig.mix || { bat: 100, tomb: 0, kamikaze: 0 };
+        var roll = getRandomNumber(100);
+        var batLimit = mix.bat || 0;
+        var tombLimit = batLimit + (mix.tomb || 0);
+
+        if (roll < batLimit) {
+            return new Evil(levelConfig);
+        }
+        if (roll < tombLimit) {
+            return new TombEnemy(levelConfig);
+        }
+        return new KamikazeEvil(levelConfig);
+    }
+
+    function startBossIntro() {
+        bossIntroActive = true;
+        bossIntroPendingSpawn = true;
+        bossIntroUntil = new Date().getTime() + bossIntroDurationMs;
+        stopGameMusic(250);
+        playBossIntroLaughterSegment();
+    }
+
+    function drawBossIntro() {
+        bufferctx.fillStyle = '#000000';
+        bufferctx.fillRect(0, 0, canvas.width, canvas.height);
+        bufferctx.fillStyle = '#ff1f1f';
+        bufferctx.shadowColor = 'rgba(255, 20, 20, 0.75)';
+        bufferctx.shadowBlur = 12;
+        bufferctx.font = 'bold 62px pixelbasel, Arial';
+        bufferctx.textAlign = 'center';
+        bufferctx.fillText('BOSS FINAL', canvas.width / 2, canvas.height / 2);
+        bufferctx.textAlign = 'start';
+        bufferctx.shadowBlur = 0;
     }
 
     function playShotSound() {
@@ -483,7 +666,7 @@ var gameModular = (function (global) {
     }
 
     function resetRunState() {
-        totalEvils = 7;
+        totalEvils = 0;
         initialTotalEvils = totalEvils;
         evilCounter = 1;
         youLoose = false;
@@ -495,6 +678,13 @@ var gameModular = (function (global) {
         hasShownFinalScene = false;
         nextPlayerShot = 0;
         now = 0;
+        currentLevelIndex = 0;
+        enemiesRemainingInLevel = 0;
+        bossIntroActive = false;
+        bossIntroPendingSpawn = false;
+        bossIntroUntil = 0;
+        stopBossLaserSound(true);
+        stopBossIntroLaughter(true);
         keyPressed = {};
         playerShotsBuffer.splice(0, playerShotsBuffer.length);
         evilShotsBuffer.splice(0, evilShotsBuffer.length);
@@ -530,8 +720,9 @@ var gameModular = (function (global) {
         gameOverScene.hide();
         victoryScene.hide();
         player = new Player(maxPlayerLife, 0);
+        enemiesRemainingInLevel = getCurrentLevelConfig().enemyCount;
         createNewEvil();
-        setLevelMessage('Nivel 1', 2200);
+        setLevelMessage('Nivel ' + getCurrentLevelNumber(), 2200);
         gamePhase = 'playing';
         lastFrameTime = new Date().getTime();
         playGameMusic();
@@ -549,6 +740,8 @@ var gameModular = (function (global) {
         if (bossMusic && !bossMusic.paused) {
             bossMusic.pause();
         }
+        stopBossLaserSound(false);
+        stopBossIntroLaughter(false);
         pauseScene.show();
     }
 
@@ -569,6 +762,8 @@ var gameModular = (function (global) {
     function goToMenu() {
         stopGameMusic(250);
         stopBossMusic(true);
+        stopBossLaserSound(true);
+        stopBossIntroLaughter(true);
         stopMenuMusic(false);
         if (winGameSound) {
             winGameSound.pause();
@@ -712,6 +907,8 @@ var gameModular = (function (global) {
                 return;
             }
 
+            playHitSound();
+
             if (this.hasShield) {
                 this.removeShield();
                 this.damageCooldownUntil = new Date().getTime() + 700;
@@ -739,6 +936,8 @@ var gameModular = (function (global) {
             if (!this.canReceiveDamage()) {
                 return;
             }
+
+            playHitSound();
 
             if (this.hasShield) {
                 this.removeShield();
@@ -866,7 +1065,6 @@ var gameModular = (function (global) {
             this.dead = true;
             healthBarSystem.clearEnemy(this);
             createPowerUp();
-            totalEvils--;
             this.image = enemyImages.killed;
             verifyToCreateNewEvil();
         };
@@ -922,18 +1120,90 @@ var gameModular = (function (global) {
         }, self.minShootDelay + getRandomNumber(Math.max(1, self.maxShootDelay)));
     }
 
-    function Evil(life, shots) {
-        Enemy.call(this, life, shots, evilImages);
-        var batsKilled = initialTotalEvils - totalEvils;
-        this.goDownSpeed = evilSpeed + (batsKilled * 0.22);
-        this.speed = evilSpeed + (batsKilled * 0.12);
-        this.attackShotSpeed = shotSpeed + (batsKilled * 0.45);
-        this.minShootDelay = Math.max(350, 1000 - (batsKilled * 90));
-        this.maxShootDelay = Math.max(900, 3000 - (batsKilled * 180));
-        this.pointsToKill = 5 + evilCounter;
+    function Evil(levelConfig) {
+        Enemy.call(this, levelConfig.enemyLife, levelConfig.enemyShots, evilImages);
+        this.goDownSpeed = levelConfig.enemyDownSpeed;
+        this.speed = levelConfig.enemyHorizontalSpeed;
+        this.attackShotSpeed = levelConfig.enemyShotSpeed;
+        this.minShootDelay = levelConfig.enemyShootMinDelay;
+        this.maxShootDelay = levelConfig.enemyShootMaxDelay;
+        this.pointsToKill = levelConfig.pointsPerEnemy + Math.floor(evilCounter / 2);
     }
     Evil.prototype = Object.create(Enemy.prototype);
     Evil.prototype.constructor = Evil;
+
+    function TombEnemy(levelConfig) {
+        Enemy.call(this, Math.max(2, levelConfig.enemyLife + 1), Math.max(2, levelConfig.enemyShots - 1), legacyBossImages);
+        this.renderWidth = 100;
+        this.renderHeight = 80;
+        this.goDownSpeed = Math.max(0.85, levelConfig.enemyDownSpeed - 0.08);
+        this.speed = Math.max(0.8, levelConfig.enemyHorizontalSpeed - 0.05);
+        this.attackShotSpeed = Math.max(4.4, levelConfig.enemyShotSpeed - 0.2);
+        this.minShootDelay = levelConfig.enemyShootMinDelay + 120;
+        this.maxShootDelay = levelConfig.enemyShootMaxDelay + 180;
+        this.pointsToKill = levelConfig.pointsPerEnemy + 6;
+    }
+    TombEnemy.prototype = Object.create(Enemy.prototype);
+    TombEnemy.prototype.constructor = TombEnemy;
+
+    function KamikazeEvil(levelConfig) {
+        this.image = kamikazeImages.animation[0];
+        this.imageNumber = 1;
+        this.animation = 0;
+        this.renderWidth = 66;
+        this.renderHeight = 66;
+        this.posX = 20 + getRandomNumber(canvas.width - this.renderWidth - 40);
+        this.posY = -this.renderHeight;
+        this.life = Math.max(2, levelConfig.enemyLife - 1);
+        this.maxLife = this.life;
+        this.dead = false;
+        this.pointsToKill = levelConfig.pointsPerEnemy + 4;
+        this.waitBeforeDashUntil = new Date().getTime() + 1000;
+        this.hasLockedTarget = false;
+        this.vx = 0;
+        this.vy = 1.05;
+        this.lockedDashSpeed = 3.4;
+
+        this.kill = function () {
+            this.dead = true;
+            healthBarSystem.clearEnemy(this);
+            createPowerUp();
+            this.image = kamikazeImages.killed;
+            verifyToCreateNewEvil();
+        };
+
+        this.update = function () {
+            this.animation++;
+            if (this.animation > 5) {
+                this.animation = 0;
+                this.imageNumber++;
+                if (this.imageNumber > 8) {
+                    this.imageNumber = 1;
+                }
+                this.image = kamikazeImages.animation[this.imageNumber - 1];
+            }
+
+            if (!this.hasLockedTarget && new Date().getTime() >= this.waitBeforeDashUntil) {
+                var centerX = this.posX + (this.renderWidth / 2);
+                var centerY = this.posY + (this.renderHeight / 2);
+                var targetX = player.posX + (getSafePlayerWidth() / 2);
+                var targetY = player.posY + (getSafePlayerHeight() / 2);
+                var dx = targetX - centerX;
+                var dy = targetY - centerY;
+                var distance = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+                this.vx = (dx / distance) * this.lockedDashSpeed;
+                this.vy = (dy / distance) * this.lockedDashSpeed;
+                this.hasLockedTarget = true;
+            }
+
+            this.posX += this.vx;
+            this.posY += this.vy;
+        };
+
+        this.isOutOfScreen = function () {
+            return this.posY > (canvas.height + 60) || this.posY < -120 || this.posX < -120 || this.posX > (canvas.width + 120);
+        };
+    }
 
     function BossBatMinion() {
         this.image = legacyBossImages.animation[0];
@@ -943,8 +1213,8 @@ var gameModular = (function (global) {
         this.renderHeight = 70;
         this.posX = 20 + getRandomNumber(canvas.width - this.renderWidth - 40);
         this.posY = -this.renderHeight;
-        this.life = 2;
-        this.maxLife = 2;
+        this.life = 3;
+        this.maxLife = 3;
         this.speed = 2.2;
         this.dead = false;
         this.pointsToKill = 35;
@@ -1059,12 +1329,14 @@ var gameModular = (function (global) {
         this.maxX = canvas.width - this.renderWidth - 24;
         this.phaseTwo = false;
         this.phaseTwoThreshold = this.maxLife * 0.5;
-        this.phaseTwoArmorHitsRequired = 3;
+        this.phaseTwoArmorHitsRequired = 5;
         this.phaseTwoArmorHitCounter = 0;
         this.currentAnimationFrames = bossImages.animation;
         this.currentLaserFrames = bossImages.laserAnimation;
         this.nextBatSpawnAt = 0;
         this.nextKamikazeSpawnAt = 0;
+        this.spawnRestUntil = 0;
+        this.laserSafeEdgeRatio = 0.08;
 
         this.laserFrame = 0;
         this.laserTick = 0;
@@ -1085,8 +1357,8 @@ var gameModular = (function (global) {
             this.laserWarningActive = false;
             this.laserActive = false;
             stopBossMusic(false);
+            stopBossLaserSound(true);
             healthBarSystem.clearEnemy(this);
-            totalEvils--;
             this.image = bossImages.killed;
             verifyToCreateNewEvil();
         };
@@ -1135,11 +1407,11 @@ var gameModular = (function (global) {
             }
 
             if (this.phaseTwo) {
-                if (nowMs >= this.nextBatSpawnAt) {
+                if (!this.laserActive && nowMs >= this.spawnRestUntil && nowMs >= this.nextBatSpawnAt) {
                     bossMinions.push(new BossBatMinion());
                     this.nextBatSpawnAt = nowMs + 2100 + getRandomNumber(2200);
                 }
-                if (nowMs >= this.nextKamikazeSpawnAt) {
+                if (!this.laserActive && nowMs >= this.spawnRestUntil && nowMs >= this.nextKamikazeSpawnAt) {
                     bossMinions.push(new KamikazeMinion());
                     this.nextKamikazeSpawnAt = nowMs + 2400 + getRandomNumber(2600);
                 }
@@ -1156,6 +1428,7 @@ var gameModular = (function (global) {
                 this.laserEndAt = nowMs + this.laserDurationMs;
                 this.laserFrame = 0;
                 this.laserTick = 0;
+                playBossLaserSoundSegment();
             }
 
             if (this.laserActive) {
@@ -1166,6 +1439,8 @@ var gameModular = (function (global) {
                 }
                 if (nowMs >= this.laserEndAt) {
                     this.laserActive = false;
+                    this.spawnRestUntil = nowMs + 2000;
+                    stopBossLaserSound(false);
                     this.nextLaserAt = nowMs + this.laserMinCooldown + getRandomNumber(this.laserMaxCooldown - this.laserMinCooldown);
                 }
             }
@@ -1240,10 +1515,18 @@ var gameModular = (function (global) {
         };
 
         this.isLaserHittingPlayer = function () {
+            var hitRect;
+            var safeInset;
             if (!self.laserActive) {
                 return false;
             }
-            return global.CollisionSystem.isRectOverlap(self.getLaserRect(), {
+
+            hitRect = self.getLaserRect();
+            safeInset = Math.floor(hitRect.width * self.laserSafeEdgeRatio);
+            hitRect.posX += safeInset;
+            hitRect.width = Math.max(8, hitRect.width - (safeInset * 2));
+
+            return global.CollisionSystem.isRectOverlap(hitRect, {
                 posX: player.posX,
                 posY: player.posY,
                 width: getSafePlayerWidth(),
@@ -1253,22 +1536,42 @@ var gameModular = (function (global) {
     }
 
     function verifyToCreateNewEvil() {
-        if (totalEvils > 0) {
-            if (totalEvils === 1 && !levelOneCompleted) {
-                levelOneCompleted = true;
-                setLevelMessage('Nivel 1 completado', 2400);
-                powerUpSystem.spawnGuaranteed(canvas.width, getRandomNumber);
-            }
-            var spawnDelayRange = Math.max(1, nextEnemySpawnMaxDelay - nextEnemySpawnMinDelay);
-            setTimeout(function () {
-                createNewEvil();
-                evilCounter++;
-            }, nextEnemySpawnMinDelay + getRandomNumber(spawnDelayRange));
-        } else {
+        if (evil instanceof FinalBoss) {
             setTimeout(function () {
                 congratulations = true;
             }, 2000);
+            return;
         }
+
+        enemiesRemainingInLevel = Math.max(0, enemiesRemainingInLevel - 1);
+
+        if (enemiesRemainingInLevel > 0) {
+            var currentConfig = getCurrentLevelConfig();
+            var spawnDelayRange = Math.max(1, currentConfig.spawnMaxDelay - currentConfig.spawnMinDelay);
+            setTimeout(function () {
+                createNewEvil();
+                evilCounter++;
+            }, currentConfig.spawnMinDelay + getRandomNumber(spawnDelayRange));
+            return;
+        }
+
+        powerUpSystem.spawnGuaranteed(canvas.width, getRandomNumber);
+        setLevelMessage('Nivel ' + getCurrentLevelNumber() + ' completado', 2200);
+
+        if (currentLevelIndex < (levelConfigs.length - 1)) {
+            setTimeout(function () {
+                currentLevelIndex += 1;
+                enemiesRemainingInLevel = getCurrentLevelConfig().enemyCount;
+                setLevelMessage('Nivel ' + getCurrentLevelNumber(), 1900);
+                createNewEvil();
+                evilCounter++;
+            }, 2300);
+            return;
+        }
+
+        setTimeout(function () {
+            startBossIntro();
+        }, 2300);
     }
 
     function createNewEvil() {
@@ -1282,19 +1585,15 @@ var gameModular = (function (global) {
         evilShotsBuffer.splice(0, evilShotsBuffer.length);
         bossMinions.splice(0, bossMinions.length);
 
-        if (totalEvils !== 1) {
+        if (currentLevelIndex < levelConfigs.length) {
             stopBossMusic(true);
-            var lifeScale = Math.floor((evilCounter - 1) / 2);
-            evil = new Evil(evilLife + lifeScale, evilShots + evilCounter - 1);
+            evil = createLevelEnemy(getCurrentLevelConfig());
             playGameMusic();
         } else {
             evil = new FinalBoss();
             stopGameMusic(250);
             playBossMusic();
-            if (!levelTwoShown) {
-                levelTwoShown = true;
-                setLevelMessage('Nivel 2', 2200);
-            }
+            setLevelMessage('Jefe final', 1800);
         }
     }
 
@@ -1597,6 +1896,18 @@ var gameModular = (function (global) {
 
         drawBackground();
 
+        if (bossIntroActive) {
+            drawBossIntro();
+            if (currentTime >= bossIntroUntil && bossIntroPendingSpawn) {
+                bossIntroActive = false;
+                bossIntroPendingSpawn = false;
+                stopBossIntroLaughter(false);
+                currentLevelIndex = levelConfigs.length;
+                createNewEvil();
+            }
+            return;
+        }
+
         weaponHeatSystem.update({
             isFiring: !!keyPressed.fire,
             nowMs: currentTime,
@@ -1607,6 +1918,8 @@ var gameModular = (function (global) {
             if (!hasShownFinalScene) {
                 hasShownFinalScene = true;
                 stopBossMusic(false);
+                stopBossLaserSound(true);
+                stopBossIntroLaughter(true);
                 var playerName = prompt('Ganaste! Ingresa tu nombre para registrar puntuacion:', 'Jugador');
                 saveFinalScore(playerName || 'Jugador');
                 scoreboardSystem.renderList('puntuaciones');
@@ -1621,6 +1934,8 @@ var gameModular = (function (global) {
             if (!hasShownFinalScene) {
                 hasShownFinalScene = true;
                 stopBossMusic(false);
+                stopBossLaserSound(true);
+                stopBossIntroLaughter(true);
                 playGameOverSound();
                 gameOverScene.show();
                 gamePhase = 'end';

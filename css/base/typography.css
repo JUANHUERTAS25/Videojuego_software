@@ -1,3 +1,11 @@
+@font-face {
+    font-family: 'pixelbasel';
+    src: url('../../Pixelbasel.ttf') format('truetype');
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+}
+
 body {
     color: #e9f2ff;
     font: 14px Arial, sans-serif;

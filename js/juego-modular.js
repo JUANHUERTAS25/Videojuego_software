@@ -32,10 +32,12 @@ var gameModular = (function (global) {
         nextEnemySpawnMaxDelay = 1400,
         evilShots = 5,
         evilLife = 3,
+        playerShotRenderWidth = 18,
+        playerShotRenderHeight = 18,
         finalBossShots = 30,
-        finalBossLife = 22,
+        finalBossLife = 18,
         finalBossLaserWarningDurationMs = 900,
-        finalBossLaserWidthRatio = 0.5,
+        finalBossLaserWidthRatio = 0.38,
         finalBossLaserDurationMs = 1300,
         levelConfigs = [
             { enemyCount: 8, enemyLife: 2, enemyShots: 3, enemyDownSpeed: 0.95, enemyHorizontalSpeed: 0.9, enemyShotSpeed: 4.6, enemyShootMinDelay: 1200, enemyShootMaxDelay: 2900, spawnMinDelay: 760, spawnMaxDelay: 1300, pointsPerEnemy: 11, mix: { bat: 65, tomb: 25, kamikaze: 10 } },
@@ -48,6 +50,9 @@ var gameModular = (function (global) {
         bossIntroPendingSpawn = false,
         bossIntroUntil = 0,
         bossIntroDurationMs = 4600,
+        backgroundScrollOffsetY = 0,
+        mainBackgroundScrollSpeed = 92,
+        bossBackgroundScrollSpeed = 126,
         totalBestScoresToShow = 5,
         nextPlayerShot = 0,
         playerShotDelay = 200,
@@ -62,6 +67,8 @@ var gameModular = (function (global) {
         playerLifeHeartImage,
         hudShieldIconImage,
         hudTripleIconImage,
+        selectedWeaponSkinSrc = 'images/disparo_bueno.png',
+        isAudioMuted = false,
         menuMusic,
         menuMusicBaseVolume = 0.45,
         hasUnlockedMenuAudio = false,
@@ -89,6 +96,16 @@ var gameModular = (function (global) {
         gameOverScene,
         victoryScene,
         gamePhase = 'menu',
+        isTutorialMode = false,
+        tutorialCurrentStep = 0,
+        tutorialCompletedAt = 0,
+        tutorialTarget = null,
+        tutorialFlags = {
+            movedLeft: false,
+            movedRight: false,
+            shotTarget: false,
+            pausedOnce: false
+        },
         hasShownFinalScene = false,
         lastFrameTime = 0,
         levelMessage = '',
@@ -178,7 +195,7 @@ var gameModular = (function (global) {
         bgBoss.src = 'images/fondovertical_jefe.png';
 
         playerShotImage = new Image();
-        playerShotImage.src = 'images/disparo_bueno.png';
+        playerShotImage.src = selectedWeaponSkinSrc;
         evilShotImage = new Image();
         evilShotImage.src = 'images/disparo_malo.png';
         playerKilledImage = new Image();
@@ -230,7 +247,7 @@ var gameModular = (function (global) {
     }
 
     function playHitSound() {
-        if (!hitSound) {
+        if (!hitSound || isAudioMuted) {
             return;
         }
         var hitInstance = hitSound.cloneNode();
@@ -241,7 +258,7 @@ var gameModular = (function (global) {
     }
 
     function playBossMusic() {
-        if (!bossMusic || gamePhase !== 'playing') {
+        if (!bossMusic || gamePhase !== 'playing' || isAudioMuted) {
             return;
         }
         if (!(evil instanceof FinalBoss)) {
@@ -271,7 +288,7 @@ var gameModular = (function (global) {
         var clipEnd = 12;
         var clipDurationMs = (clipEnd - clipStart) * 1000;
 
-        if (!bossLaserSound) {
+        if (!bossLaserSound || isAudioMuted) {
             return;
         }
 
@@ -321,7 +338,7 @@ var gameModular = (function (global) {
         var clipStart = 31;
         var clipDurationMs = bossIntroDurationMs;
 
-        if (!evilLaughterSound) {
+        if (!evilLaughterSound || isAudioMuted) {
             return;
         }
 
@@ -367,8 +384,85 @@ var gameModular = (function (global) {
         }
     }
 
+    function getMuteIconPath() {
+        return isAudioMuted
+            ? 'images/botones_juego/boton_sonido_silencio.PNG'
+            : 'images/botones_juego/boton_sonido_volumen.PNG';
+    }
+
+    function updateMuteButtonsUI() {
+        var menuMuteImg = document.getElementById('imgMuteMenu');
+        var pauseMuteImg = document.getElementById('imgMutePause');
+        var iconPath = getMuteIconPath();
+        var altText = isAudioMuted ? 'Sonido silenciado' : 'Sonido activado';
+
+        if (menuMuteImg) {
+            menuMuteImg.src = iconPath;
+            menuMuteImg.alt = altText;
+        }
+        if (pauseMuteImg) {
+            pauseMuteImg.src = iconPath;
+            pauseMuteImg.alt = altText;
+        }
+    }
+
+    function setAudioMuted(muted) {
+        isAudioMuted = !!muted;
+        updateMuteButtonsUI();
+
+        if (isAudioMuted) {
+            stopMenuMusic(false);
+            stopGameMusic(0);
+            stopBossMusic(false);
+            stopBossLaserSound(false);
+            stopBossIntroLaughter(false);
+            return;
+        }
+
+        if (gamePhase === 'menu') {
+            playMenuMusic();
+            return;
+        }
+
+        if (gamePhase === 'playing') {
+            if (bossIntroActive) {
+                playBossIntroLaughterSegment();
+                return;
+            }
+            if (evil instanceof FinalBoss) {
+                playBossMusic();
+            } else {
+                playGameMusic();
+            }
+        }
+    }
+
+    function toggleAudioMuted() {
+        setAudioMuted(!isAudioMuted);
+    }
+
+    function setupMuteButtons() {
+        var menuMuteBtn = document.getElementById('btnMuteMenu');
+        var pauseMuteBtn = document.getElementById('btnMutePause');
+
+        if (menuMuteBtn) {
+            menuMuteBtn.addEventListener('click', function (event) {
+                event.preventDefault();
+                toggleAudioMuted();
+            });
+        }
+        if (pauseMuteBtn) {
+            pauseMuteBtn.addEventListener('click', function (event) {
+                event.preventDefault();
+                toggleAudioMuted();
+            });
+        }
+
+        updateMuteButtonsUI();
+    }
+
     function playMenuMusic() {
-        if (!menuMusic) {
+        if (!menuMusic || isAudioMuted) {
             return;
         }
         if (!menuMusic.paused) {
@@ -401,7 +495,7 @@ var gameModular = (function (global) {
     }
 
     function playGameMusic() {
-        if (!gameMusic) {
+        if (!gameMusic || isAudioMuted) {
             return;
         }
         if (youLoose || congratulations) {
@@ -522,7 +616,7 @@ var gameModular = (function (global) {
     }
 
     function playShotSound() {
-        if (!shotSound) {
+        if (!shotSound || isAudioMuted) {
             return;
         }
         var shotInstance = shotSound.cloneNode();
@@ -538,7 +632,7 @@ var gameModular = (function (global) {
     }
 
     function playPowerUpSound() {
-        if (!powerUpSound) {
+        if (!powerUpSound || isAudioMuted) {
             return;
         }
         var powerUpInstance = powerUpSound.cloneNode();
@@ -549,7 +643,7 @@ var gameModular = (function (global) {
     }
 
     function playEnemyExplosionSound() {
-        if (!enemyExplosionSound) {
+        if (!enemyExplosionSound || isAudioMuted) {
             return;
         }
         var explosionInstance = enemyExplosionSound.cloneNode();
@@ -560,7 +654,7 @@ var gameModular = (function (global) {
     }
 
     function playWinGameSound() {
-        if (!winGameSound || playedWinSound) {
+        if (!winGameSound || playedWinSound || isAudioMuted) {
             return;
         }
         playedWinSound = true;
@@ -577,7 +671,7 @@ var gameModular = (function (global) {
     }
 
     function playGameOverSound() {
-        if (!gameOverSound || playedGameOverSound) {
+        if (!gameOverSound || playedGameOverSound || isAudioMuted) {
             return;
         }
         playedGameOverSound = true;
@@ -603,7 +697,8 @@ var gameModular = (function (global) {
         bufferctx = buffer.getContext('2d');
 
         scoreboardSystem = global.ScoreboardSystem.create({
-            totalBestScoresToShow: totalBestScoresToShow
+            totalBestScoresToShow: totalBestScoresToShow,
+            backendBaseUrl: global.JELLY_BACKEND_URL || 'http://127.0.0.1:8000'
         });
         powerUpSystem = global.PowerUpSystem.create();
         healthBarSystem = global.HealthBarSystem.create();
@@ -617,11 +712,21 @@ var gameModular = (function (global) {
 
         startScreenScene = global.StartScreenScene.create({
             onPlay: startGame,
+            onTutorial: startTutorialGame,
+            canOpenSidebarLinks: function () {
+                return gamePhase === 'menu';
+            },
             getBestScore: function () {
                 return scoreboardSystem.getBestScore();
             },
             onSelectSkin: function (skinPath) {
                 selectedPlayerSkinSrc = skinPath;
+            },
+            onSelectWeaponSkin: function (weaponPath) {
+                selectedWeaponSkinSrc = weaponPath;
+                if (playerShotImage) {
+                    playerShotImage.src = selectedWeaponSkinSrc;
+                }
             }
         });
 
@@ -641,8 +746,10 @@ var gameModular = (function (global) {
         });
 
         preloadImages();
+        setupMuteButtons();
         powerUpSystem.preloadImages();
         scoreboardSystem.renderList('puntuaciones');
+        updateSidebarScore(0);
 
         startScreenScene.show();
         pauseScene.hide();
@@ -663,6 +770,28 @@ var gameModular = (function (global) {
             requestAnimFrame(anim);
         }
         anim();
+
+        setSidebarButtonsEnabled(true);
+    }
+
+    function setSidebarButtonsEnabled(enabled) {
+        var leftColumn = document.querySelector('.izquierda');
+        if (!leftColumn) {
+            return;
+        }
+        if (enabled) {
+            leftColumn.classList.remove('sidebar-locked');
+        } else {
+            leftColumn.classList.add('sidebar-locked');
+        }
+    }
+
+    function updateSidebarScore(score) {
+        var scoreNode = document.getElementById('sidebarCurrentScore');
+        if (!scoreNode) {
+            return;
+        }
+        scoreNode.textContent = String(Math.max(0, score || 0));
     }
 
     function resetRunState() {
@@ -683,6 +812,15 @@ var gameModular = (function (global) {
         bossIntroActive = false;
         bossIntroPendingSpawn = false;
         bossIntroUntil = 0;
+        isTutorialMode = false;
+        tutorialCurrentStep = 0;
+        tutorialTarget = null;
+        tutorialCompletedAt = 0;
+        tutorialFlags.movedLeft = false;
+        tutorialFlags.movedRight = false;
+        tutorialFlags.shotTarget = false;
+        tutorialFlags.pausedOnce = false;
+        backgroundScrollOffsetY = 0;
         stopBossLaserSound(true);
         stopBossIntroLaughter(true);
         keyPressed = {};
@@ -715,14 +853,57 @@ var gameModular = (function (global) {
         stopBossMusic(true);
         resetRunState();
         stopMenuMusic(true);
+        setSidebarButtonsEnabled(false);
         startScreenScene.hide();
         pauseScene.hide();
         gameOverScene.hide();
         victoryScene.hide();
         player = new Player(maxPlayerLife, 0);
+        updateSidebarScore(0);
         enemiesRemainingInLevel = getCurrentLevelConfig().enemyCount;
         createNewEvil();
         setLevelMessage('Nivel ' + getCurrentLevelNumber(), 2200);
+        gamePhase = 'playing';
+        lastFrameTime = new Date().getTime();
+        playGameMusic();
+    }
+
+    function startTutorialGame() {
+        if (winGameSound) {
+            winGameSound.pause();
+            winGameSound.currentTime = 0;
+        }
+        if (gameOverSound) {
+            gameOverSound.pause();
+            gameOverSound.currentTime = 0;
+        }
+
+        stopBossMusic(true);
+        resetRunState();
+        stopMenuMusic(true);
+        setSidebarButtonsEnabled(false);
+        startScreenScene.hide();
+        pauseScene.hide();
+        gameOverScene.hide();
+        victoryScene.hide();
+
+        isTutorialMode = true;
+        tutorialCurrentStep = 0;
+        tutorialFlags.movedLeft = false;
+        tutorialFlags.movedRight = false;
+        tutorialFlags.shotTarget = false;
+        tutorialFlags.pausedOnce = false;
+
+        player = new Player(maxPlayerLife, 0);
+        updateSidebarScore(0);
+        tutorialTarget = {
+            posX: Math.floor((canvas.width / 2) - 28),
+            posY: 135,
+            width: 56,
+            height: 56,
+            hitFlashUntil: 0
+        };
+
         gamePhase = 'playing';
         lastFrameTime = new Date().getTime();
         playGameMusic();
@@ -752,6 +933,9 @@ var gameModular = (function (global) {
         pauseScene.hide();
         gamePhase = 'playing';
         lastFrameTime = new Date().getTime();
+        if (isTutorialMode && tutorialCurrentStep === 3 && tutorialFlags.pausedOnce) {
+            advanceTutorialStep();
+        }
         if (evil instanceof FinalBoss) {
             playBossMusic();
         } else {
@@ -780,6 +964,7 @@ var gameModular = (function (global) {
         victoryScene.hide();
         gamePhase = 'menu';
         playMenuMusic();
+        setSidebarButtonsEnabled(true);
     }
 
     function getRandomNumber(range) {
@@ -813,6 +998,7 @@ var gameModular = (function (global) {
             marginBottom: 10,
             defaultHeight: 66
         };
+        var hitAnimTimer = null;
 
         player = new Image();
         player.src = selectedPlayerSkinSrc || playerNormalImage.src;
@@ -828,12 +1014,15 @@ var gameModular = (function (global) {
         player.tripleShotUntil = 0;
 
         function createSingleShot() {
-            var shot = new PlayerShot(player.posX + (getSafePlayerWidth() / 2) - 5, player.posY);
+            var shot = new PlayerShot(
+                player.posX + (getSafePlayerWidth() / 2) - (playerShotRenderWidth / 2),
+                player.posY
+            );
             shot.add();
         }
 
         function createTripleShot() {
-            var centerX = player.posX + (getSafePlayerWidth() / 2) - 5;
+            var centerX = player.posX + (getSafePlayerWidth() / 2) - (playerShotRenderWidth / 2);
             var leftShot = new PlayerShot(centerX - 16, player.posY);
             var centerShot = new PlayerShot(centerX, player.posY);
             var rightShot = new PlayerShot(centerX + 16, player.posY);
@@ -887,6 +1076,22 @@ var gameModular = (function (global) {
             return new Date().getTime() >= this.damageCooldownUntil;
         };
 
+        player.playHitAnimation = function () {
+            var self = this;
+            if (self.dead) {
+                return;
+            }
+            self.src = playerKilledImage.src;
+            if (hitAnimTimer) {
+                clearTimeout(hitAnimTimer);
+            }
+            hitAnimTimer = setTimeout(function () {
+                if (!self.dead) {
+                    self.src = selectedPlayerSkinSrc || playerNormalImage.src;
+                }
+            }, 180);
+        };
+
         player.doAnything = function () {
             if (player.dead) {
                 return;
@@ -908,6 +1113,7 @@ var gameModular = (function (global) {
             }
 
             playHitSound();
+            this.playHitAnimation();
 
             if (this.hasShield) {
                 this.removeShield();
@@ -927,7 +1133,6 @@ var gameModular = (function (global) {
                     player = new Player(player.life - 1, player.score);
                 }, 500);
             } else {
-                saveFinalScore();
                 youLoose = true;
             }
         };
@@ -938,6 +1143,7 @@ var gameModular = (function (global) {
             }
 
             playHitSound();
+            this.playHitAnimation();
 
             if (this.hasShield) {
                 this.removeShield();
@@ -950,7 +1156,6 @@ var gameModular = (function (global) {
                 this.damageCooldownUntil = new Date().getTime() + 900;
                 evilShotsBuffer.splice(0, evilShotsBuffer.length);
             } else {
-                saveFinalScore();
                 youLoose = true;
             }
         };
@@ -1329,7 +1534,7 @@ var gameModular = (function (global) {
         this.maxX = canvas.width - this.renderWidth - 24;
         this.phaseTwo = false;
         this.phaseTwoThreshold = this.maxLife * 0.5;
-        this.phaseTwoArmorHitsRequired = 5;
+        this.phaseTwoArmorHitsRequired = 3;
         this.phaseTwoArmorHitCounter = 0;
         this.currentAnimationFrames = bossImages.animation;
         this.currentLaserFrames = bossImages.laserAnimation;
@@ -1745,6 +1950,9 @@ var gameModular = (function (global) {
         if (key === 27) {
             e.preventDefault();
             if (gamePhase === 'playing') {
+                if (isTutorialMode) {
+                    tutorialFlags.pausedOnce = true;
+                }
                 pauseGame();
             } else if (gamePhase === 'paused') {
                 resumeGame();
@@ -1762,6 +1970,14 @@ var gameModular = (function (global) {
             if (key === keyMap[inkey]) {
                 e.preventDefault();
                 keyPressed[inkey] = true;
+                if (isTutorialMode) {
+                    if (inkey === 'left') {
+                        tutorialFlags.movedLeft = true;
+                    }
+                    if (inkey === 'right') {
+                        tutorialFlags.movedRight = true;
+                    }
+                }
             }
         }
     }
@@ -1781,20 +1997,37 @@ var gameModular = (function (global) {
         ctx.drawImage(buffer, 0, 0);
     }
 
+    function updateBackgroundScroll(deltaSec) {
+        var speed = (evil instanceof FinalBoss) ? bossBackgroundScrollSpeed : mainBackgroundScrollSpeed;
+
+        backgroundScrollOffsetY += speed * deltaSec;
+        if (backgroundScrollOffsetY >= canvas.height) {
+            backgroundScrollOffsetY = backgroundScrollOffsetY % canvas.height;
+        }
+    }
+
     function drawBackground() {
         var background = (evil instanceof FinalBoss) ? bgBoss : bgMain;
-        bufferctx.drawImage(background, 0, 0);
+        var offsetY = Math.floor(backgroundScrollOffsetY);
+
+        if (!background) {
+            return;
+        }
+
+        // Draw two stacked backgrounds to create a seamless downward scroll.
+        bufferctx.drawImage(background, 0, offsetY - canvas.height, canvas.width, canvas.height);
+        bufferctx.drawImage(background, 0, offsetY, canvas.width, canvas.height);
     }
 
     function showGameOver() {
         bufferctx.fillStyle = 'rgb(255,0,0)';
-        bufferctx.font = 'bold 35px Arial';
+        bufferctx.font = 'bold 35px pixelbasel, Arial, sans-serif';
         bufferctx.fillText('GAME OVER', canvas.width / 2 - 100, canvas.height / 2);
     }
 
     function showCongratulations() {
-        bufferctx.fillStyle = 'rgb(204,50,153)';
-        bufferctx.font = 'bold 22px Arial';
+        bufferctx.fillStyle = 'rgb(46, 219, 97)';
+        bufferctx.font = 'bold 22px pixelbasel, Arial, sans-serif';
         bufferctx.fillText('Enhorabuena, te has pasado el juego!', canvas.width / 2 - 200, canvas.height / 2 - 30);
         bufferctx.fillText('PUNTOS: ' + player.score, canvas.width / 2 - 200, canvas.height / 2);
         bufferctx.fillText('VIDAS: ' + player.life + ' x 5', canvas.width / 2 - 200, canvas.height / 2 + 30);
@@ -1803,9 +2036,9 @@ var gameModular = (function (global) {
 
     function showLifeAndScore() {
         var heartSize = 26;
-        var heartStartX = canvas.width - 185;
+        var heartStartX = canvas.width - 105;
         var heartY = 30;
-        var hudIconX = canvas.width - 185;
+        var hudIconX = canvas.width - 110;
         var shieldHudY = 70;
         var tripleHudY = 100;
         var hudIconSize = 20;
@@ -1815,7 +2048,6 @@ var gameModular = (function (global) {
         bufferctx.font = 'bold 16px Arial';
         bufferctx.shadowColor = 'rgba(0,0,0,0.75)';
         bufferctx.shadowBlur = 2;
-        bufferctx.fillText('Puntos: ' + player.score, canvas.width - 185, 20);
 
         for (i = 0; i < player.life; i++) {
             bufferctx.drawImage(
@@ -1836,7 +2068,159 @@ var gameModular = (function (global) {
             bufferctx.fillText('ACTIVO', hudIconX + 26, tripleHudY);
         }
         bufferctx.shadowBlur = 0;
-        weaponHeatSystem.drawHud(bufferctx, new Date().getTime(), canvas.width - 190, 125);
+        weaponHeatSystem.drawHud(bufferctx, new Date().getTime(), canvas.width - 130, 125);
+    }
+
+    function getTutorialStepText() {
+        if (tutorialCurrentStep === 0) {
+            return 'Tutorial: mueve la medusa a la izquierda con la flecha izquierda de tu teclado.';
+        }
+        if (tutorialCurrentStep === 1) {
+            return 'Tutorial: ahora mueve la medusa a la derecha con la flecha derecha de tu teclado.';
+        }
+        if (tutorialCurrentStep === 2) {
+            return 'Tutorial: dispara con ESPACIO y pega al objetivo.';
+        }
+        if (tutorialCurrentStep === 3) {
+            return 'Tutorial: presiona ESC para pausar y luego reanuda.';
+        }
+        return 'Tutorial completado. Volviendo al menu...';
+    }
+
+    function advanceTutorialStep() {
+        tutorialCurrentStep += 1;
+        if (tutorialCurrentStep >= 4) {
+            tutorialCurrentStep = 4;
+            tutorialCompletedAt = new Date().getTime() + 1400;
+        }
+    }
+
+    function drawTutorialOverlay() {
+        var nowMs = new Date().getTime();
+        var boxWidth = Math.floor(canvas.width * 0.64);
+        var boxHeight = 138;
+        var boxX = Math.floor((canvas.width - boxWidth) / 2);
+        var boxY = Math.floor((canvas.height - boxHeight) / 2) + 140;
+        var maxTextWidth = boxWidth - 36;
+        var words;
+        var currentLine = '';
+        var lines = [];
+        var i;
+        var text = getTutorialStepText();
+
+        bufferctx.save();
+        bufferctx.fillStyle = 'rgba(6, 12, 20, 0.78)';
+        bufferctx.fillRect(boxX, boxY, boxWidth, boxHeight);
+        bufferctx.strokeStyle = '#ffffff';
+        bufferctx.lineWidth = 2;
+        bufferctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
+
+        bufferctx.fillStyle = '#d7ffe6';
+        bufferctx.font = 'bold 24px pixelbasel, Arial, sans-serif';
+        words = text.split(' ');
+        for (i = 0; i < words.length; i++) {
+            var candidate = currentLine ? (currentLine + ' ' + words[i]) : words[i];
+            if (bufferctx.measureText(candidate).width <= maxTextWidth) {
+                currentLine = candidate;
+            } else {
+                lines.push(currentLine);
+                currentLine = words[i];
+            }
+        }
+        if (currentLine) {
+            lines.push(currentLine);
+        }
+
+        for (i = 0; i < lines.length && i < 4; i++) {
+            bufferctx.fillText(lines[i], boxX + 18, boxY + 36 + (i * 26));
+        }
+        bufferctx.restore();
+
+        if (tutorialTarget) {
+            bufferctx.save();
+            bufferctx.fillStyle = nowMs < tutorialTarget.hitFlashUntil ? 'rgba(240, 255, 110, 0.5)' : 'rgba(50, 90, 140, 0.35)';
+            bufferctx.fillRect(tutorialTarget.posX, tutorialTarget.posY, tutorialTarget.width, tutorialTarget.height);
+            bufferctx.strokeStyle = '#d8f2ff';
+            bufferctx.lineWidth = 2;
+            bufferctx.strokeRect(tutorialTarget.posX, tutorialTarget.posY, tutorialTarget.width, tutorialTarget.height);
+            bufferctx.fillStyle = '#d8f2ff';
+            bufferctx.font = 'bold 13px pixelbasel, Arial, sans-serif';
+            bufferctx.fillText('OBJETIVO', tutorialTarget.posX - 6, tutorialTarget.posY - 8);
+            bufferctx.restore();
+        }
+    }
+
+    function isTutorialShotHittingTarget(shot) {
+        if (!tutorialTarget) {
+            return false;
+        }
+        return global.CollisionSystem.isRectOverlap({
+            posX: shot.posX,
+            posY: shot.posY,
+            width: playerShotRenderWidth,
+            height: playerShotRenderHeight
+        }, {
+            posX: tutorialTarget.posX,
+            posY: tutorialTarget.posY,
+            width: tutorialTarget.width,
+            height: tutorialTarget.height
+        });
+    }
+
+    function updateTutorialMode(currentTime) {
+        var j;
+
+        drawPlayerWithEffects();
+
+        for (j = 0; j < playerShotsBuffer.length; j++) {
+            var playerShot = playerShotsBuffer[j];
+            if (!playerShot) {
+                continue;
+            }
+            playerShot.posY -= playerShot.speed;
+            if (playerShot.posY <= 0) {
+                playerShotsBuffer.splice(j, 1);
+                j -= 1;
+                continue;
+            }
+
+            if (isTutorialShotHittingTarget(playerShot)) {
+                tutorialFlags.shotTarget = true;
+                if (tutorialTarget) {
+                    tutorialTarget.hitFlashUntil = currentTime + 250;
+                }
+                playerShotsBuffer.splice(j, 1);
+                j -= 1;
+                continue;
+            }
+
+            bufferctx.drawImage(
+                playerShot.image,
+                playerShot.posX,
+                playerShot.posY,
+                playerShotRenderWidth,
+                playerShotRenderHeight
+            );
+        }
+
+        if (tutorialCurrentStep === 0 && tutorialFlags.movedLeft) {
+            advanceTutorialStep();
+        }
+        if (tutorialCurrentStep === 1 && tutorialFlags.movedRight) {
+            advanceTutorialStep();
+        }
+        if (tutorialCurrentStep === 2 && tutorialFlags.shotTarget) {
+            advanceTutorialStep();
+        }
+
+        showLifeAndScore();
+        updateSidebarScore(player.score);
+        drawTutorialOverlay();
+        player.doAnything();
+
+        if (tutorialCurrentStep >= 4 && tutorialCompletedAt > 0 && currentTime >= tutorialCompletedAt) {
+            goToMenu();
+        }
     }
 
     function updatePlayerShot(playerShot, id) {
@@ -1847,7 +2231,13 @@ var gameModular = (function (global) {
         if (checkCollisions(playerShot)) {
             if (playerShot.posY > 0) {
                 playerShot.posY -= playerShot.speed;
-                bufferctx.drawImage(playerShot.image, playerShot.posX, playerShot.posY);
+                bufferctx.drawImage(
+                    playerShot.image,
+                    playerShot.posX,
+                    playerShot.posY,
+                    playerShotRenderWidth,
+                    playerShotRenderHeight
+                );
             } else {
                 playerShot.deleteShot(parseInt(playerShot.identifier, 10));
             }
@@ -1868,11 +2258,7 @@ var gameModular = (function (global) {
             }
         } else {
             evilShot.deleteShot(parseInt(evilShot.identifier, 10));
-            if (evil instanceof FinalBoss) {
-                player.killPlayerWithoutReset();
-            } else {
-                player.killPlayer();
-            }
+            player.killPlayerWithoutReset();
         }
     }
 
@@ -1894,6 +2280,7 @@ var gameModular = (function (global) {
             return;
         }
 
+        updateBackgroundScroll(deltaSec);
         drawBackground();
 
         if (bossIntroActive) {
@@ -1914,14 +2301,18 @@ var gameModular = (function (global) {
             deltaSec: deltaSec
         });
 
+        if (isTutorialMode) {
+            updateTutorialMode(currentTime);
+            return;
+        }
+
         if (congratulations) {
             if (!hasShownFinalScene) {
                 hasShownFinalScene = true;
                 stopBossMusic(false);
                 stopBossLaserSound(true);
                 stopBossIntroLaughter(true);
-                var playerName = prompt('Ganaste! Ingresa tu nombre para registrar puntuacion:', 'Jugador');
-                saveFinalScore(playerName || 'Jugador');
+                saveFinalScore(promptWinnerTag());
                 scoreboardSystem.renderList('puntuaciones');
                 playWinGameSound();
                 victoryScene.show(getTotalScore());
@@ -1971,11 +2362,7 @@ var gameModular = (function (global) {
         }
 
         if (isEvilHittingPlayer()) {
-            if (evil instanceof FinalBoss) {
-                player.killPlayerWithoutReset();
-            } else {
-                player.killPlayer();
-            }
+            player.killPlayerWithoutReset();
         } else {
             var i;
             for (i = 0; i < evilShotsBuffer.length; i++) {
@@ -1984,6 +2371,7 @@ var gameModular = (function (global) {
         }
 
         showLifeAndScore();
+        updateSidebarScore(player.score);
         player.doAnything();
     }
 
@@ -1991,8 +2379,37 @@ var gameModular = (function (global) {
         return player.score + player.life * 5;
     }
 
+    function sanitizeWinnerTag(rawValue) {
+        var tag = (rawValue || '').toString().trim().toUpperCase();
+        tag = tag.replace(/[^A-Z0-9]/g, '');
+        return tag.slice(0, 3);
+    }
+
+    function promptWinnerTag() {
+        var fallbackTag = 'AAA';
+        var attempt = 0;
+        var inputTag = '';
+
+        while (attempt < 3) {
+            inputTag = prompt('Ganaste! Ingresa un nombre de 3 caracteres (A-Z, 0-9):', fallbackTag);
+            if (inputTag === null) {
+                break;
+            }
+
+            inputTag = sanitizeWinnerTag(inputTag);
+            if (inputTag.length === 3) {
+                return inputTag;
+            }
+
+            alert('Debes ingresar exactamente 3 caracteres validos.');
+            attempt += 1;
+        }
+
+        return fallbackTag;
+    }
+
     function saveFinalScore() {
-        var defaultName = youLoose ? 'Derrotado' : 'Jugador';
+        var defaultName = 'AAA';
         var nameArg = arguments.length > 0 ? arguments[0] : defaultName;
         scoreboardSystem.saveScore(getTotalScore(), 'puntuaciones', nameArg);
     }

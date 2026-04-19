@@ -22,9 +22,13 @@ div.izquierda {
     float: left;
     text-align: left;
 }
-div.juego {
 
+div.izquierda.sidebar-locked a {
+    pointer-events: none;
+    cursor: default;
+    opacity: 0.45;
 }
+
 div.juego canvas {
     box-shadow: 0 0 30px #000;
 }

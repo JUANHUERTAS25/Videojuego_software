@@ -2,22 +2,63 @@
     function create(options) {
         var menuRoot = document.getElementById('sceneMenu');
         var wardrobeRoot = document.getElementById('sceneWardrobe');
-        var tutorialRoot = document.getElementById('sceneTutorial');
+        var specsRoot = document.getElementById('sceneSpecs');
 
         var playBtn = document.getElementById('btnPlay');
         var wardrobeBtn = document.getElementById('btnWardrobe');
         var tutorialBtn = document.getElementById('btnTutorial');
-        var tutorialLink = document.getElementById('tutorialLink');
+        var specsLink = document.getElementById('specsLink');
 
         var wardrobeBackBtn = document.getElementById('btnWardrobeBack');
-        var selectSkinDefaultBtn = document.getElementById('btnSelectSkinDefault');
-        var selectSkin2Btn = document.getElementById('btnSelectSkin2');
-        var wardrobeStatus = document.getElementById('wardrobeUnlockStatus');
-        var wardrobeCard = document.getElementById('wardrobeSkinCard');
+        var skinPrevBtn = document.getElementById('btnSkinPrev');
+        var skinNextBtn = document.getElementById('btnSkinNext');
+        var skinPreview = document.getElementById('wardrobeSkinPreview');
+        var skinTitle = document.getElementById('wardrobeSkinTitle');
+        var skinStatus = document.getElementById('wardrobeSkinStatus');
+        var selectCurrentSkinBtn = document.getElementById('btnSelectCurrentSkin');
 
-        var tutorialBackBtn = document.getElementById('btnTutorialBack');
+        var weaponPrevBtn = document.getElementById('btnWeaponPrev');
+        var weaponNextBtn = document.getElementById('btnWeaponNext');
+        var weaponPreview = document.getElementById('wardrobeWeaponPreview');
+        var weaponTitle = document.getElementById('wardrobeWeaponTitle');
+        var weaponStatus = document.getElementById('wardrobeWeaponStatus');
+        var selectCurrentWeaponBtn = document.getElementById('btnSelectCurrentWeapon');
+
+        var specsBackBtn = document.getElementById('btnSpecsBack');
+
+        var medusaSkins = [
+            {
+                name: 'Skin Verde',
+                src: 'images/bueno.png',
+                unlockMinScore: 0,
+                lockedText: 'Siempre disponible.',
+                unlockedText: 'Siempre disponible.'
+            },
+            {
+                name: 'Skin 2',
+                src: 'images/skin2.png',
+                unlockMinScore: 70,
+                lockedText: 'Bloqueada: alcanza 70 puntos para desbloquear.',
+                unlockedText: 'Desbloqueada: puntuacion 70+ alcanzada.'
+            }
+        ];
+
+        var weaponSkins = [
+            {
+                name: 'Arma Default',
+                src: 'images/disparo_bueno.png'
+            },
+            {
+                name: 'Arma Medusa',
+                src: 'images/skin_arma_medusa.png'
+            }
+        ];
+
+        var medusaIndex = 0;
+        var weaponIndex = 0;
 
         var selectedSkin = 'images/bueno.png';
+        var selectedWeaponSkin = 'images/disparo_bueno.png';
 
         function getBestStoredScore() {
             if (options.getBestScore) {
@@ -26,33 +67,54 @@
             return 0;
         }
 
-        function isSkin2Unlocked() {
-            return getBestStoredScore() >= 70;
+        function isMedusaSkinUnlocked(skinConfig) {
+            return getBestStoredScore() >= (skinConfig.unlockMinScore || 0);
+        }
+
+        function refreshMedusaSkinState() {
+            var currentSkin = medusaSkins[medusaIndex];
+            var unlocked = isMedusaSkinUnlocked(currentSkin);
+
+            if (skinPreview) {
+                skinPreview.src = currentSkin.src;
+            }
+            if (skinTitle) {
+                skinTitle.textContent = currentSkin.name;
+            }
+            if (skinStatus) {
+                skinStatus.textContent = unlocked ? currentSkin.unlockedText : currentSkin.lockedText;
+            }
+            if (selectCurrentSkinBtn) {
+                if (!unlocked) {
+                    selectCurrentSkinBtn.disabled = true;
+                    selectCurrentSkinBtn.textContent = 'Bloqueada';
+                } else {
+                    selectCurrentSkinBtn.disabled = false;
+                    selectCurrentSkinBtn.textContent = selectedSkin === currentSkin.src ? 'Seleccionada' : 'Seleccionar medusa';
+                }
+            }
+        }
+
+        function refreshWeaponSkinState() {
+            var currentWeapon = weaponSkins[weaponIndex];
+            if (weaponPreview) {
+                weaponPreview.src = currentWeapon.src;
+            }
+            if (weaponTitle) {
+                weaponTitle.textContent = currentWeapon.name;
+            }
+            if (weaponStatus) {
+                weaponStatus.textContent = 'Disponible.';
+            }
+            if (selectCurrentWeaponBtn) {
+                selectCurrentWeaponBtn.disabled = false;
+                selectCurrentWeaponBtn.textContent = selectedWeaponSkin === currentWeapon.src ? 'Seleccionada' : 'Seleccionar arma';
+            }
         }
 
         function refreshWardrobeState() {
-            var unlocked = isSkin2Unlocked();
-            if (wardrobeStatus) {
-                wardrobeStatus.textContent = unlocked
-                    ? 'Desbloqueada: puntuacion 70+ alcanzada.'
-                    : 'Bloqueada: alcanza 70 puntos para desbloquear.';
-            }
-            if (selectSkin2Btn) {
-                selectSkin2Btn.disabled = !unlocked;
-                selectSkin2Btn.textContent = unlocked
-                    ? (selectedSkin === 'images/skin2.png' ? 'Seleccionada' : 'Seleccionar')
-                    : 'Bloqueada';
-            }
-            if (selectSkinDefaultBtn) {
-                selectSkinDefaultBtn.textContent = selectedSkin === 'images/bueno.png' ? 'Seleccionada' : 'Seleccionar';
-            }
-            if (wardrobeCard) {
-                if (unlocked) {
-                    wardrobeCard.classList.remove('is-locked');
-                } else {
-                    wardrobeCard.classList.add('is-locked');
-                }
-            }
+            refreshMedusaSkinState();
+            refreshWeaponSkinState();
         }
 
         function showMenuRoot() {
@@ -62,8 +124,8 @@
             if (wardrobeRoot) {
                 wardrobeRoot.classList.remove('is-active');
             }
-            if (tutorialRoot) {
-                tutorialRoot.classList.remove('is-active');
+            if (specsRoot) {
+                specsRoot.classList.remove('is-active');
             }
         }
 
@@ -77,12 +139,12 @@
             }
         }
 
-        function showTutorial() {
+        function showSpecs() {
             if (menuRoot) {
                 menuRoot.classList.remove('is-active');
             }
-            if (tutorialRoot) {
-                tutorialRoot.classList.add('is-active');
+            if (specsRoot) {
+                specsRoot.classList.add('is-active');
             }
         }
 
@@ -98,13 +160,18 @@
         }
         if (tutorialBtn) {
             tutorialBtn.addEventListener('click', function () {
-                showTutorial();
+                if (options.onTutorial) {
+                    options.onTutorial();
+                }
             });
         }
-        if (tutorialLink) {
-            tutorialLink.addEventListener('click', function (event) {
+        if (specsLink) {
+            specsLink.addEventListener('click', function (event) {
                 event.preventDefault();
-                showTutorial();
+                if (options.canOpenSidebarLinks && !options.canOpenSidebarLinks()) {
+                    return;
+                }
+                showSpecs();
             });
         }
         if (wardrobeBackBtn) {
@@ -112,29 +179,55 @@
                 showMenuRoot();
             });
         }
-        if (tutorialBackBtn) {
-            tutorialBackBtn.addEventListener('click', function () {
+        if (specsBackBtn) {
+            specsBackBtn.addEventListener('click', function () {
                 showMenuRoot();
             });
         }
-        if (selectSkin2Btn) {
-            selectSkin2Btn.addEventListener('click', function () {
-                if (!isSkin2Unlocked()) {
+        if (skinPrevBtn) {
+            skinPrevBtn.addEventListener('click', function () {
+                medusaIndex = (medusaIndex - 1 + medusaSkins.length) % medusaSkins.length;
+                refreshMedusaSkinState();
+            });
+        }
+        if (skinNextBtn) {
+            skinNextBtn.addEventListener('click', function () {
+                medusaIndex = (medusaIndex + 1) % medusaSkins.length;
+                refreshMedusaSkinState();
+            });
+        }
+        if (selectCurrentSkinBtn) {
+            selectCurrentSkinBtn.addEventListener('click', function () {
+                var currentSkin = medusaSkins[medusaIndex];
+                if (!isMedusaSkinUnlocked(currentSkin)) {
                     return;
                 }
-                selectedSkin = 'images/skin2.png';
-                refreshWardrobeState();
+                selectedSkin = currentSkin.src;
+                refreshMedusaSkinState();
                 if (options.onSelectSkin) {
                     options.onSelectSkin(selectedSkin);
                 }
             });
         }
-        if (selectSkinDefaultBtn) {
-            selectSkinDefaultBtn.addEventListener('click', function () {
-                selectedSkin = 'images/bueno.png';
-                refreshWardrobeState();
-                if (options.onSelectSkin) {
-                    options.onSelectSkin(selectedSkin);
+
+        if (weaponPrevBtn) {
+            weaponPrevBtn.addEventListener('click', function () {
+                weaponIndex = (weaponIndex - 1 + weaponSkins.length) % weaponSkins.length;
+                refreshWeaponSkinState();
+            });
+        }
+        if (weaponNextBtn) {
+            weaponNextBtn.addEventListener('click', function () {
+                weaponIndex = (weaponIndex + 1) % weaponSkins.length;
+                refreshWeaponSkinState();
+            });
+        }
+        if (selectCurrentWeaponBtn) {
+            selectCurrentWeaponBtn.addEventListener('click', function () {
+                selectedWeaponSkin = weaponSkins[weaponIndex].src;
+                refreshWeaponSkinState();
+                if (options.onSelectWeaponSkin) {
+                    options.onSelectWeaponSkin(selectedWeaponSkin);
                 }
             });
         }
@@ -151,8 +244,8 @@
             if (wardrobeRoot) {
                 wardrobeRoot.classList.remove('is-active');
             }
-            if (tutorialRoot) {
-                tutorialRoot.classList.remove('is-active');
+            if (specsRoot) {
+                specsRoot.classList.remove('is-active');
             }
         }
 

@@ -1,6 +1,7 @@
 (function (global) {
-    var SHIELD_SIZE_EXTRA = 14;
-    var SHIELD_ALPHA = 0.4;
+    var SHIELD_WIDTH_EXTRA = 36;
+    var SHIELD_HEIGHT_EXTRA = 24;
+    var SHIELD_ALPHA = 0.56;
     var POWERUP_SIZE = 22;
 
     function getAuraColor(type) {
@@ -175,10 +176,10 @@
             if (!player.hasShield) {
                 return;
             }
-            var shieldWidth = playerWidth + SHIELD_SIZE_EXTRA;
-            var shieldHeight = playerHeight + SHIELD_SIZE_EXTRA;
+            var shieldWidth = playerWidth + SHIELD_WIDTH_EXTRA;
+            var shieldHeight = playerHeight + SHIELD_HEIGHT_EXTRA;
             var shieldX = player.posX - ((shieldWidth - playerWidth) / 2);
-            var shieldY = player.posY - ((shieldHeight - playerHeight) / 2);
+            var shieldY = player.posY - ((shieldHeight - playerHeight) / 2) - 4;
             ctx.globalAlpha = SHIELD_ALPHA;
             ctx.drawImage(shieldImage, shieldX, shieldY, shieldWidth, shieldHeight);
             ctx.globalAlpha = 1;

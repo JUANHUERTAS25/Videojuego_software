@@ -52,6 +52,33 @@ ul.lista li.titulo {
     letter-spacing: 0.4px;
 }
 
+div.izquierda.sidebar-locked a {
+    pointer-events: none;
+    cursor: default;
+    opacity: 0.45;
+}
+
+.sidebar-score-panel {
+    text-align: center;
+}
+
+.sidebar-score-value {
+    padding-top: 6px;
+}
+
+#sidebarCurrentScore {
+    display: inline-block;
+    min-width: 120px;
+    padding: 8px 10px;
+    border: 2px solid #ffffff;
+    background: rgba(8, 20, 32, 0.75);
+    color: #8bffa0;
+    font-family: 'pixelbasel', Arial, sans-serif;
+    font-size: 28px;
+    line-height: 1;
+    text-shadow: 0 0 10px rgba(80, 255, 145, 0.45);
+}
+
 ul.lista li.esc {
     padding-left: 2px;
     color: #cfe3ff;

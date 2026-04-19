@@ -22,30 +22,31 @@
     <script src="js/scenes/pause-scene.js"></script>
     <script src="js/scenes/game-over-scene.js"></script>
     <script src="js/scenes/victory-scene.js"></script>
+    <script>
+        window.JELLY_BACKEND_URL = 'http://127.0.0.1:8000';
+    </script>
 
 <script src="js/juego-modular.js"></script>
 </head>
     <body onload="gameModular.init()">
+    <div class="page-decor" aria-hidden="true">
+        <img src="images/Decoraciones/cohete.png" alt="" class="decor decor-rocket">
+        <img src="images/Decoraciones/estrella.png" alt="" class="decor decor-star decor-star-1">
+        <img src="images/Decoraciones/estrella.png" alt="" class="decor decor-star decor-star-2">
+        <img src="images/Decoraciones/estrella.png" alt="" class="decor decor-star decor-star-3">
+        <img src="images/Decoraciones/estrella.png" alt="" class="decor decor-star decor-star-4">
+        <img src="images/Decoraciones/estrella.png" alt="" class="decor decor-star decor-star-5">
+    </div>
     <div class="contenedor">
         <div class="izquierda">
-            <img src="images/logo_uis.png"  class="logo-uis" alt="Logo UIS" />
-            <ul class="lista">
-                <li class="titulo">CONTROLES:</li>
-                <li class="izquierda">izquierda</li>
-                <li class="derecha">derecha</li>
-                <li class="espacio">disparar</li>
-                <li class="esc">esc: pausar/reanudar</li>
-            </ul>
-            <ul class="lista">
-                <li class="titulo">PROBADO CON:</li>
-                <li class="firefox">Mozilla Firefox 11</li>
-                <li class="chrome">Google Chrome 18</li>
-                <li class="safari">Safari 5.1</li>
+            <img src="images/logo_empresa_juego.jpg" class="logo-uis" alt="Logo UIS" />
+            <ul class="lista sidebar-score-panel">
+                <li class="titulo">PUNTAJE ACTUAL</li>
+                <li class="sidebar-score-value"><span id="sidebarCurrentScore">0</span></li>
             </ul>
             <ul class="lista">
                 <li class="titulo">OTROS:</li>
-                <li><a id="tutorialLink" href="#">Tutorial</a></li>
-                <li><a>Especificaciones del juego</a></li>
+                <li><a id="specsLink" href="#">Especificaciones del juego</a></li>
             </ul>
         </div>
         <div class="derecha">
@@ -56,62 +57,86 @@
             <canvas id="canvas" width="600" height="650">TU NAVEGADOR NO SOPORTA HTML5!</canvas>
 
             <div id="sceneMenu" class="scene-overlay scene-overlay--menu is-active">
+                <button id="btnMuteMenu" class="mute-toggle" type="button" aria-label="Silenciar o activar sonido">
+                    <img id="imgMuteMenu" src="images/botones_juego/boton_sonido_volumen.PNG" alt="Sonido activado">
+                </button>
                 <div class="menu-panel">
                     <h1 class="menu-title">JellyShoot</h1>
                     <div class="menu-actions">
-                        <button id="btnPlay" class="menu-button menu-button--primary" type="button">Play</button>
-                        <button id="btnWardrobe" class="menu-button menu-button--secondary menu-button--wardrobe" type="button">
-                            <img src="images/skin2.png" alt="Skin 2" class="menu-skin-preview">
-                            <span>Vestuario</span>
-                        </button>
+                        <button id="btnPlay" class="menu-image-button menu-image-button--play" type="button" aria-label="Play"></button>
+                        <button id="btnWardrobe" class="menu-image-button menu-image-button--wardrobe" type="button" aria-label="Vestuario"></button>
                         <button id="btnTutorial" class="menu-button menu-button--secondary" type="button">Tutorial</button>
                     </div>
                 </div>
             </div>
 
             <div id="sceneWardrobe" class="scene-overlay scene-overlay--menu-sub">
-                <div class="menu-panel">
+                <div class="menu-panel wardrobe-panel">
                     <h2>Vestuario</h2>
-                    <div class="wardrobe-card" id="wardrobeSkinCardDefault">
-                        <img src="images/bueno.png" alt="Skin verde" class="wardrobe-skin-image">
-                        <h3>Skin Verde (Default)</h3>
-                        <p>Siempre disponible.</p>
-                        <button id="btnSelectSkinDefault" class="menu-button menu-button--primary" type="button">Seleccionar</button>
+
+                    <div class="wardrobe-section wardrobe-section--top" id="wardrobeSkinSection">
+                        <h3>Skins Medusa</h3>
+                        <div class="wardrobe-row">
+                            <button id="btnSkinPrev" class="wardrobe-arrow" type="button" aria-label="Skin anterior">&#9664;</button>
+                            <div class="wardrobe-preview">
+                                <img id="wardrobeSkinPreview" src="images/bueno.png" alt="Skin medusa" class="wardrobe-skin-image">
+                            </div>
+                            <button id="btnSkinNext" class="wardrobe-arrow" type="button" aria-label="Skin siguiente">&#9654;</button>
+                        </div>
+                        <p id="wardrobeSkinTitle">Skin Verde</p>
+                        <p id="wardrobeSkinStatus">Siempre disponible.</p>
+                        <button id="btnSelectCurrentSkin" class="menu-button menu-button--primary" type="button">Seleccionar medusa</button>
                     </div>
-                    <div class="wardrobe-card" id="wardrobeSkinCard">
-                        <img src="images/skin2.png" alt="Skin 2" class="wardrobe-skin-image">
-                        <h3>Skin 2</h3>
-                        <p id="wardrobeUnlockStatus">Bloqueada: alcanza 70 puntos para desbloquear.</p>
-                        <button id="btnSelectSkin2" class="menu-button menu-button--primary" type="button">Seleccionar</button>
+
+                    <div class="wardrobe-section wardrobe-section--bottom" id="wardrobeWeaponSection">
+                        <h3>Skins Arma</h3>
+                        <div class="wardrobe-row">
+                            <button id="btnWeaponPrev" class="wardrobe-arrow" type="button" aria-label="Arma anterior">&#9664;</button>
+                            <div class="wardrobe-preview">
+                                <img id="wardrobeWeaponPreview" src="images/disparo_bueno.png" alt="Skin arma" class="wardrobe-weapon-image">
+                            </div>
+                            <button id="btnWeaponNext" class="wardrobe-arrow" type="button" aria-label="Arma siguiente">&#9654;</button>
+                        </div>
+                        <p id="wardrobeWeaponTitle">Arma Default</p>
+                        <p id="wardrobeWeaponStatus">Disponible.</p>
+                        <button id="btnSelectCurrentWeapon" class="menu-button menu-button--primary" type="button">Seleccionar arma</button>
                     </div>
+
                     <div class="menu-actions">
                         <button id="btnWardrobeBack" class="menu-button menu-button--secondary" type="button">Volver</button>
                     </div>
                 </div>
             </div>
 
-            <div id="sceneTutorial" class="scene-overlay scene-overlay--menu-sub">
+            <div id="sceneSpecs" class="scene-overlay scene-overlay--menu-sub">
                 <div class="menu-panel tutorial-panel">
-                    <h2>Tutorial</h2>
+                    <h2>Especificaciones del juego</h2>
                     <div class="tutorial-item">
-                        <img src="images/izquierda.png" alt="Izquierda">
-                        <span>Mover a la izquierda</span>
+                        <img src="images/izquierda.png" alt="Controles">
+                        <span>Controles: Flecha izquierda/derecha para moverte, espacio para disparar y ESC para pausar/reanudar.</span>
                     </div>
                     <div class="tutorial-item">
-                        <img src="images/derecha.png" alt="Derecha">
-                        <span>Mover a la derecha</span>
+                        <img src="images/power_up_disparo.png" alt="Power Ups">
+                        <span>Power-ups: escudo (absorbe dano), triple disparo temporal y vida extra.</span>
                     </div>
                     <div class="tutorial-item">
-                        <img src="images/space.gif" alt="Espacio">
-                        <span>Disparar (cuidado con el sobrecalentamiento)</span>
+                        <img src="images/bossF/bossF1.png" alt="Jefe final">
+                        <span>Progreso: 3 niveles con enemigos mixtos y jefe final de dos fases con ataque laser.</span>
+                    </div>
+                    <div class="tutorial-item">
+                        <img src="images/logo_empresa_juego.jpg" alt="Compatibilidad">
+                        <span>Probado con: Mozilla Firefox 11, Google Chrome 18 y Safari 5.1.</span>
                     </div>
                     <div class="menu-actions">
-                        <button id="btnTutorialBack" class="menu-button menu-button--secondary" type="button">Volver</button>
+                        <button id="btnSpecsBack" class="menu-button menu-button--secondary" type="button">Volver</button>
                     </div>
                 </div>
             </div>
 
             <div id="scenePause" class="scene-overlay scene-overlay--pause">
+                <button id="btnMutePause" class="mute-toggle" type="button" aria-label="Silenciar o activar sonido">
+                    <img id="imgMutePause" src="images/botones_juego/boton_sonido_volumen.PNG" alt="Sonido activado">
+                </button>
                 <div class="end-panel">
                     <h2>Juego en pausa</h2>
                     <p>Presiona Esc para reanudar o usa un boton.</p>
@@ -124,22 +149,22 @@
 
             <div id="sceneGameOver" class="scene-overlay scene-overlay--end">
                 <div class="end-panel">
-                    <h2>Game Over</h2>
+                    <h2>Perdiste</h2>
                     <p>Intentalo de nuevo y supera tu puntuacion.</p>
                     <div class="end-actions">
                         <button id="btnGameOverHome" class="end-button" type="button">⌂ Inicio</button>
-                        <button id="btnGameOverRestart" class="end-button end-button--restart" type="button">Restart</button>
+                        <button id="btnGameOverRestart" class="end-button end-button--restart" type="button">Volver a intentarlo</button>
                     </div>
                 </div>
             </div>
 
             <div id="sceneVictory" class="scene-overlay scene-overlay--end">
                 <div class="end-panel">
-                    <h2>Victoria</h2>
+                    <h2>¡GANASTE!</h2>
                     <p id="victoryScore">Puntuacion total: 0</p>
                     <div class="end-actions">
                         <button id="btnVictoryHome" class="end-button" type="button">⌂ Inicio</button>
-                        <button id="btnVictoryRestart" class="end-button end-button--restart" type="button">Restart</button>
+                        <button id="btnVictoryRestart" class="end-button end-button--restart" type="button">Volver a intentarlo</button>
                     </div>
                 </div>
             </div>

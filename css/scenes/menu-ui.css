@@ -37,6 +37,7 @@
 
 .menu-panel,
 .end-panel {
+    position: relative;
     width: 360px;
     max-width: calc(100% - 40px);
     background: rgba(10, 16, 20, 0.82);
@@ -52,8 +53,10 @@
 }
 
 .menu-title {
+    font-family: 'pixelbasel', Arial, sans-serif;
     color: #44ff66;
-    font-size: 44px;
+    font-size: 56px;
+    line-height: 1;
     letter-spacing: 1px;
     margin-bottom: 24px;
     text-shadow: 0 0 14px rgba(68, 255, 102, 0.45);
@@ -64,6 +67,51 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
+}
+
+.mute-toggle {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 50px;
+    height: 50px;
+    border: 2px solid #ffffff;
+    background: rgba(5, 16, 24, 0.75);
+    padding: 4px;
+    cursor: pointer;
+    z-index: 4;
+}
+
+.mute-toggle img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    image-rendering: pixelated;
+}
+
+.menu-image-button {
+    width: 100%;
+    min-height: 72px;
+    border: 2px solid #ffffff;
+    background-color: rgba(12, 16, 22, 0.6);
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: contain;
+    cursor: pointer;
+    transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.menu-image-button:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.06);
+}
+
+.menu-image-button--play {
+    background-image: url("../../images/botones_juego/boton_play.png");
+}
+
+.menu-image-button--wardrobe {
+    background-image: url("../../images/botones_juego/boton_vestuario.png");
 }
 
 .menu-button,
@@ -93,6 +141,18 @@
     color: #d9ebff;
 }
 
+#btnTutorial {
+    background: linear-gradient(180deg, #55ff8f 0%, #1de95f 55%, #10b846 100%);
+    color: #ffffff;
+    text-shadow: 0 0 8px rgba(20, 255, 110, 0.4);
+    box-shadow: 0 0 12px rgba(45, 255, 130, 0.28);
+}
+
+#btnTutorial:hover {
+    filter: brightness(1.08);
+    box-shadow: 0 0 16px rgba(80, 255, 160, 0.36);
+}
+
 .menu-button--wardrobe {
     display: flex;
     align-items: center;
@@ -112,6 +172,54 @@
     padding: 12px;
     background: rgba(15, 26, 40, 0.84);
     border: 2px solid #fff;
+}
+
+.wardrobe-panel {
+    max-height: calc(100% - 40px);
+    overflow: auto;
+}
+
+.wardrobe-section {
+    margin: 10px 0;
+    padding: 10px;
+    border: 2px solid #ffffff;
+    background: rgba(15, 26, 40, 0.84);
+}
+
+.wardrobe-section h3 {
+    margin: 2px 0 8px;
+}
+
+.wardrobe-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.wardrobe-arrow {
+    width: 34px;
+    height: 34px;
+    border: 2px solid #ffffff;
+    background: #1d304b;
+    color: #ffffff;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.wardrobe-preview {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+}
+
+.wardrobe-weapon-image {
+    width: 96px;
+    height: 60px;
+    border: 2px solid #fff;
+    image-rendering: pixelated;
+    object-fit: contain;
+    background: rgba(0, 0, 0, 0.25);
 }
 
 .wardrobe-card h3 {
@@ -167,6 +275,20 @@
 .end-panel h2 {
     margin: 0 0 10px;
     color: #ffffff;
+}
+
+#sceneGameOver .end-panel h2 {
+    color: #ff2b2b;
+    font-family: 'pixelbasel', Arial, sans-serif;
+    font-size: 52px;
+    line-height: 1;
+}
+
+#sceneVictory .end-panel h2 {
+    color: #2edb61;
+    font-family: 'pixelbasel', Arial, sans-serif;
+    font-size: 52px;
+    line-height: 1;
 }
 
 .end-panel p {
